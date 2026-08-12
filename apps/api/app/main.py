@@ -40,36 +40,23 @@ async def _lifespan(_app: FastAPI):
 
 app = FastAPI(title="OpenMontage Web API", lifespan=_lifespan)
 
-# Same router at two prefixes on purpose: unprefixed for apps/web's Server
-# Actions (POST /jobs, /croll, /voice-clone, ...), and again under /api/
-# because the manual editor SPA (ported byte-for-byte from
-# OpenMontage-p2/remotion-composer/editor/ — see the block below) has its
-# own fetch calls hardcoded to `/api/editor/{jobId}/...` (its vite.config.ts
-# comment explains why: in the original deployment, server/index.js fronted
-# both the Python API under /api/* and this static build under /editor/*,
-# on one origin). Reproducing that origin-and-prefix shape here, rather
-# than patching the SPA's fetch calls, is what "ported unchanged" means.
-app.include_router(jobs_router)
-app.include_router(jobs_router, prefix="/api")
-
 # ---------------------------------------------------------------------------
-# Manual editor SPA (ported unchanged from remotion-composer/editor/,
-# built via `npm run build:editor` -> editor-dist/). vite.config.ts hardcodes
-# `base: "/editor/"`, so its own asset URLs are /editor/assets/*; the shell
-# page it expects to be served at is /editor/<job_id> (job id read from the
-# URL path client-side, see App.tsx's useJobIdAndToken). Both are added
-# without touching webhook.py's existing /editor/{job_id}/props etc. routes
-# above — those take 3 path segments, this shell route takes exactly 2, so
-# FastAPI's path-parameter matching never confuses the two.
-_EDITOR_DIST = Path(__file__).resolve().parent.parent / "remotion-composer" / "editor-dist"
-if _EDITOR_DIST.is_dir():
-    app.mount("/editor/assets", StaticFiles(directory=str(_EDITOR_DIST / "assets")), name="editor-assets")
-
-    @app.get("/editor/{job_id}")
-    def editor_shell(job_id: str):
-        return FileResponse(str(_EDITOR_DIST / "index.html"))
-else:
-    logger.warning(f"editor-dist not found at {_EDITOR_DIST} — run `npm run build:editor` in remotion-composer/")
+# Brainstorm tools (Phase 0/1) — registered BEFORE jobs_router is included
+# below. Real bug found live (2026-08-12, user noticed the search-grounding
+# feature looked unconfigured when the key was actually set): webhook.py
+# (ported verbatim from OpenMontage-p2/whatsapp_mvp) has its OWN
+# /content-ideas, /shooting-scripts, /video-scripts routes — a stateless,
+# Form()-based variant with no brand_voice_notes support, built for the old
+# Node gateway's multipart calls. FastAPI/Starlette matches routes in
+# registration order, first match wins; with jobs_router included first,
+# every call from apps/web (which POSTs JSON) was silently hitting
+# webhook.py's Form-only handler instead and failing Pydantic validation
+# (422, "direction: Field required") — not a missing-key problem at all,
+# a routing shadow bug. These three routes MUST be registered before
+# app.include_router(jobs_router) for that reason; don't reorder without
+# re-reading this comment. webhook.py's own copies are left completely
+# alone (unreachable dead code now, but "ported unchanged" means not
+# touching that file to fix a problem that belongs on this side).
 
 
 class BrainstormRequest(BaseModel):
@@ -113,3 +100,37 @@ def shooting_scripts(req: BrainstormRequest):
 def content_ideas(req: BrainstormRequest):
     direction = _augment_direction(req.direction, req.lang, req.brand_voice_notes)
     return {"idea": generate_content_idea(direction, req.lang)}
+
+
+# ---------------------------------------------------------------------------
+# Video-editing job routes (Phase 2) — same router at two prefixes on
+# purpose: unprefixed for apps/web's Server Actions (POST /jobs, /croll,
+# /voice-clone, ...), and again under /api/ because the manual editor SPA
+# (ported byte-for-byte from OpenMontage-p2/remotion-composer/editor/ — see
+# the block below) has its own fetch calls hardcoded to
+# `/api/editor/{jobId}/...` (its vite.config.ts comment explains why: in
+# the original deployment, server/index.js fronted both the Python API
+# under /api/* and this static build under /editor/*, on one origin).
+# Reproducing that origin-and-prefix shape here, rather than patching the
+# SPA's fetch calls, is what "ported unchanged" means.
+app.include_router(jobs_router)
+app.include_router(jobs_router, prefix="/api")
+
+# ---------------------------------------------------------------------------
+# Manual editor SPA (ported unchanged from remotion-composer/editor/,
+# built via `npm run build:editor` -> editor-dist/). vite.config.ts hardcodes
+# `base: "/editor/"`, so its own asset URLs are /editor/assets/*; the shell
+# page it expects to be served at is /editor/<job_id> (job id read from the
+# URL path client-side, see App.tsx's useJobIdAndToken). Both are added
+# without touching webhook.py's existing /editor/{job_id}/props etc. routes
+# above — those take 3 path segments, this shell route takes exactly 2, so
+# FastAPI's path-parameter matching never confuses the two.
+_EDITOR_DIST = Path(__file__).resolve().parent.parent / "remotion-composer" / "editor-dist"
+if _EDITOR_DIST.is_dir():
+    app.mount("/editor/assets", StaticFiles(directory=str(_EDITOR_DIST / "assets")), name="editor-assets")
+
+    @app.get("/editor/{job_id}")
+    def editor_shell(job_id: str):
+        return FileResponse(str(_EDITOR_DIST / "index.html"))
+else:
+    logger.warning(f"editor-dist not found at {_EDITOR_DIST} — run `npm run build:editor` in remotion-composer/")
