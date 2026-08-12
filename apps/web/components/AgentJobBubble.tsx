@@ -7,7 +7,8 @@
 // contract), different presentation: no outer <Card>, no "start over"
 // (in a chat thread you just send the next attachment — old messages stay
 // in the transcript, same as a real WhatsApp conversation).
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
 import {
   confirmEditJob, getEditJobStatus, getEditorUrl, renderEditJob, retryEditJob, reviseEditJob,
   type ActionResult,
@@ -17,6 +18,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { basename, IN_PROGRESS_STATUSES, OPERATION_LABELS, type EditJob } from "@/lib/edit-jobs";
 
 const POLL_MS = 4000;
+// WhatsApp's own worker.js reassures the user roughly every minute of no
+// status change rather than leaving a single static spinner up for the
+// whole multi-minute render — reproduced here client-side.
+const HEARTBEAT_MS = 60000;
 
 const STATUS_COPY: Partial<Record<EditJob["status"], string>> = {
   RECEIVED: "Uploaded — starting up…",
@@ -27,27 +32,48 @@ const STATUS_COPY: Partial<Record<EditJob["status"], string>> = {
   DELIVERING: "Wrapping up…",
 };
 
+const HEARTBEAT_TEXT = "Still working on it — this step is taking a little longer than usual, hang tight.";
+
 function fileUrl(jobId: string, path: string | null) {
   const name = basename(path);
   return name ? `/api/edit-files/${jobId}/${encodeURIComponent(name)}` : null;
 }
 
-export function AgentJobBubble({ job, onUpdate }: { job: EditJob; onUpdate: (job: EditJob) => void }) {
+export function AgentJobBubble({
+  job, onUpdate, onHeartbeat,
+}: {
+  job: EditJob;
+  onUpdate: (job: EditJob) => void;
+  onHeartbeat: (text: string) => void;
+}) {
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionPending, setActionPending] = useState(false);
   const [reviseText, setReviseText] = useState("");
   const [reviseOpen, setReviseOpen] = useState(false);
   const [editorUrl, setEditorUrl] = useState<string | null>(null);
+  const lastHeartbeatRef = useRef<number>(0);
 
   useEffect(() => {
-    if (!IN_PROGRESS_STATUSES.includes(job.status)) return;
+    lastHeartbeatRef.current = Date.now();
+  }, [job.status]);
+
+  useEffect(() => {
+    // Skip polling for the PENDING placeholder (empty job_id) — it has an
+    // in-progress status but no real id yet, so polling would hit `/jobs/`
+    // (empty) in a loop (307 -> 405) until AgentChat swaps in the real job.
+    if (!job.job_id || !IN_PROGRESS_STATUSES.includes(job.status)) return;
     const jobId = job.job_id;
     const id = setInterval(async () => {
       const result = await getEditJobStatus(jobId);
       if (result.ok) onUpdate(result.data);
+      // Periodic reassurance during long steps (mirrors WhatsApp worker.js).
+      if (Date.now() - lastHeartbeatRef.current >= HEARTBEAT_MS) {
+        lastHeartbeatRef.current = Date.now();
+        onHeartbeat(HEARTBEAT_TEXT);
+      }
     }, POLL_MS);
     return () => clearInterval(id);
-  }, [job.status, job.job_id, onUpdate]);
+  }, [job.status, job.job_id, onUpdate, onHeartbeat]);
 
   async function runAction(fn: () => Promise<ActionResult<{ status: string }>>) {
     setActionError(null);
@@ -93,7 +119,11 @@ export function AgentJobBubble({ job, onUpdate }: { job: EditJob; onUpdate: (job
 
       {job.status === "WAITING_CONFIRMATION" && job.planned_edit && (
         <>
-          {job.planned_edit.summary && <p className="whitespace-pre-wrap">{job.planned_edit.summary}</p>}
+          {job.planned_edit.summary && (
+            <div className="agent-markdown">
+              <ReactMarkdown>{job.planned_edit.summary}</ReactMarkdown>
+            </div>
+          )}
           <ul className="flex flex-col gap-1">
             {job.planned_edit.edit_operations.map((op, i) => (
               <li key={i} className="flex items-center gap-2 text-[13px]">
@@ -155,6 +185,9 @@ export function AgentJobBubble({ job, onUpdate }: { job: EditJob; onUpdate: (job
               >
                 Download
               </a>
+              <Button size="sm" variant="outline" className="w-fit" onClick={openEditor}>
+                Open manual editor
+              </Button>
             </>
           )}
         </>

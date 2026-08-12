@@ -39,7 +39,10 @@ export type EditJob = {
 
 export function basename(path: string | null): string | null {
   if (!path) return null;
-  return path.split("/").pop() ?? null;
+  // Split on both separators — apps/api runs on Windows too, where
+  // preview_path/final_path come back as `D:\...\preview.mp4` (backslashes);
+  // splitting on "/" alone would return the whole path as the "filename".
+  return path.split(/[/\\]/).pop() ?? null;
 }
 
 // Statuses where polling should keep going.
