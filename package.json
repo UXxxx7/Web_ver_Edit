@@ -1,0 +1,10 @@
+{
+  "name": "openmontage-web",
+  "private": true,
+  "description": "OpenMontage's standalone product website. See implementation_plan.md and README.md.",
+  "scripts": {
+    "dev:web": "npm --prefix apps/web run dev",
+    "build:web": "npm --prefix apps/web run build",
+    "dev:api": "cd apps/api && . .venv/bin/activate && uvicorn app.main:app --reload --port 8001"
+  }
+}

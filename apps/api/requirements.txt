@@ -1,0 +1,8 @@
+# OpenMontage Web API — matches the package names/versions pinned in
+# OpenMontage-p2/pyproject.toml for the same libraries (checked its .venv).
+fastapi>=0.139.0
+uvicorn[standard]>=0.49.0
+pydantic>=2.0
+python-dotenv>=1.0
+requests>=2.31
+opencc-python-reimplemented>=0.1.7
