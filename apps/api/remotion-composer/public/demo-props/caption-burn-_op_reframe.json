@@ -1,0 +1,679 @@
+{
+  "videoSrc": "public/talking-head/_op_reframe.mp4",
+  "captions": [
+    {
+      "word": "Hi",
+      "startMs": 2160,
+      "endMs": 2680
+    },
+    {
+      "word": "there,",
+      "startMs": 2680,
+      "endMs": 3000
+    },
+    {
+      "word": "it's",
+      "startMs": 3600,
+      "endMs": 3720
+    },
+    {
+      "word": "David",
+      "startMs": 3720,
+      "endMs": 3980
+    },
+    {
+      "word": "from",
+      "startMs": 3980,
+      "endMs": 4340
+    },
+    {
+      "word": "Pacific",
+      "startMs": 4340,
+      "endMs": 4640
+    },
+    {
+      "word": "life",
+      "startMs": 4640,
+      "endMs": 5080
+    },
+    {
+      "word": "a",
+      "startMs": 5080,
+      "endMs": 5720
+    },
+    {
+      "word": "quick",
+      "startMs": 5720,
+      "endMs": 5880
+    },
+    {
+      "word": "reminder",
+      "startMs": 5880,
+      "endMs": 6320
+    },
+    {
+      "word": "your",
+      "startMs": 6320,
+      "endMs": 7040
+    },
+    {
+      "word": "policy",
+      "startMs": 7040,
+      "endMs": 7580
+    },
+    {
+      "word": "is",
+      "startMs": 7580,
+      "endMs": 8039
+    },
+    {
+      "word": "coming",
+      "startMs": 8039,
+      "endMs": 8320
+    },
+    {
+      "word": "up",
+      "startMs": 8320,
+      "endMs": 8560
+    },
+    {
+      "word": "for",
+      "startMs": 8560,
+      "endMs": 8800
+    },
+    {
+      "word": "renewal",
+      "startMs": 8800,
+      "endMs": 9160
+    },
+    {
+      "word": "in",
+      "startMs": 9160,
+      "endMs": 9760
+    },
+    {
+      "word": "30",
+      "startMs": 9760,
+      "endMs": 10120
+    },
+    {
+      "word": "days",
+      "startMs": 10120,
+      "endMs": 10660
+    },
+    {
+      "word": "on",
+      "startMs": 10660,
+      "endMs": 11000
+    },
+    {
+      "word": "the",
+      "startMs": 11540,
+      "endMs": 11680
+    },
+    {
+      "word": "28th",
+      "startMs": 11680,
+      "endMs": 12480
+    },
+    {
+      "word": "of",
+      "startMs": 12480,
+      "endMs": 12640
+    },
+    {
+      "word": "July",
+      "startMs": 12640,
+      "endMs": 12980
+    },
+    {
+      "word": "Your",
+      "startMs": 13680,
+      "endMs": 14180
+    },
+    {
+      "word": "current",
+      "startMs": 14180,
+      "endMs": 14480
+    },
+    {
+      "word": "plan",
+      "startMs": 14480,
+      "endMs": 14700
+    },
+    {
+      "word": "covers",
+      "startMs": 14700,
+      "endMs": 15060
+    },
+    {
+      "word": "you",
+      "startMs": 15060,
+      "endMs": 15300
+    },
+    {
+      "word": "for",
+      "startMs": 15300,
+      "endMs": 15660
+    },
+    {
+      "word": "one",
+      "startMs": 15660,
+      "endMs": 16000
+    },
+    {
+      "word": "point",
+      "startMs": 16000,
+      "endMs": 16300
+    },
+    {
+      "word": "Your",
+      "startMs": 17320,
+      "endMs": 18000
+    },
+    {
+      "word": "current",
+      "startMs": 18000,
+      "endMs": 18460
+    },
+    {
+      "word": "plan",
+      "startMs": 18460,
+      "endMs": 18780
+    },
+    {
+      "word": "covers",
+      "startMs": 18780,
+      "endMs": 19220
+    },
+    {
+      "word": "you",
+      "startMs": 19220,
+      "endMs": 19500
+    },
+    {
+      "word": "for",
+      "startMs": 19500,
+      "endMs": 19800
+    },
+    {
+      "word": "one",
+      "startMs": 19800,
+      "endMs": 20060
+    },
+    {
+      "word": "and",
+      "startMs": 20060,
+      "endMs": 20180
+    },
+    {
+      "word": "a",
+      "startMs": 20180,
+      "endMs": 20240
+    },
+    {
+      "word": "half",
+      "startMs": 20240,
+      "endMs": 20540
+    },
+    {
+      "word": "million",
+      "startMs": 20540,
+      "endMs": 20860
+    },
+    {
+      "word": "and",
+      "startMs": 20860,
+      "endMs": 21800
+    },
+    {
+      "word": "your",
+      "startMs": 21800,
+      "endMs": 22000
+    },
+    {
+      "word": "annual",
+      "startMs": 22000,
+      "endMs": 22400
+    },
+    {
+      "word": "premium",
+      "startMs": 22400,
+      "endMs": 22780
+    },
+    {
+      "word": "is",
+      "startMs": 22780,
+      "endMs": 23180
+    },
+    {
+      "word": "$8",
+      "startMs": 23180,
+      "endMs": 23520
+    },
+    {
+      "word": ",400",
+      "startMs": 23520,
+      "endMs": 24200
+    },
+    {
+      "word": "I've",
+      "startMs": 24200,
+      "endMs": 25760
+    },
+    {
+      "word": "put",
+      "startMs": 25760,
+      "endMs": 25880
+    },
+    {
+      "word": "the",
+      "startMs": 25880,
+      "endMs": 26040
+    },
+    {
+      "word": "full",
+      "startMs": 26040,
+      "endMs": 26260
+    },
+    {
+      "word": "breakdown",
+      "startMs": 26260,
+      "endMs": 26620
+    },
+    {
+      "word": "in",
+      "startMs": 26620,
+      "endMs": 26880
+    },
+    {
+      "word": "this",
+      "startMs": 26880,
+      "endMs": 27020
+    },
+    {
+      "word": "video.",
+      "startMs": 27020,
+      "endMs": 27360
+    },
+    {
+      "word": "So",
+      "startMs": 27360,
+      "endMs": 27840
+    },
+    {
+      "word": "you",
+      "startMs": 27840,
+      "endMs": 28320
+    },
+    {
+      "word": "can",
+      "startMs": 28320,
+      "endMs": 28520
+    },
+    {
+      "word": "have",
+      "startMs": 28520,
+      "endMs": 28880
+    },
+    {
+      "word": "everything",
+      "startMs": 32920,
+      "endMs": 33560
+    },
+    {
+      "word": "in",
+      "startMs": 33560,
+      "endMs": 34200
+    },
+    {
+      "word": "one",
+      "startMs": 34200,
+      "endMs": 34380
+    },
+    {
+      "word": "place",
+      "startMs": 34380,
+      "endMs": 34780
+    },
+    {
+      "word": "Renewing",
+      "startMs": 34780,
+      "endMs": 35900
+    },
+    {
+      "word": "on",
+      "startMs": 35900,
+      "endMs": 36060
+    },
+    {
+      "word": "time",
+      "startMs": 36060,
+      "endMs": 36340
+    },
+    {
+      "word": "really",
+      "startMs": 36340,
+      "endMs": 36780
+    },
+    {
+      "word": "matters",
+      "startMs": 36780,
+      "endMs": 37260
+    },
+    {
+      "word": "if",
+      "startMs": 37260,
+      "endMs": 37760
+    },
+    {
+      "word": "your",
+      "startMs": 37760,
+      "endMs": 37880
+    },
+    {
+      "word": "policy",
+      "startMs": 37880,
+      "endMs": 38420
+    },
+    {
+      "word": "lapses",
+      "startMs": 38420,
+      "endMs": 39480
+    },
+    {
+      "word": "You'd",
+      "startMs": 39480,
+      "endMs": 39900
+    },
+    {
+      "word": "have",
+      "startMs": 39900,
+      "endMs": 40020
+    },
+    {
+      "word": "to",
+      "startMs": 40020,
+      "endMs": 40180
+    },
+    {
+      "word": "go",
+      "startMs": 40180,
+      "endMs": 40360
+    },
+    {
+      "word": "through",
+      "startMs": 40360,
+      "endMs": 40640
+    },
+    {
+      "word": "underwriting",
+      "startMs": 40640,
+      "endMs": 41420
+    },
+    {
+      "word": "again",
+      "startMs": 41420,
+      "endMs": 41880
+    },
+    {
+      "word": "Which",
+      "startMs": 41880,
+      "endMs": 42540
+    },
+    {
+      "word": "could",
+      "startMs": 42540,
+      "endMs": 42780
+    },
+    {
+      "word": "affect",
+      "startMs": 42780,
+      "endMs": 43200
+    },
+    {
+      "word": "both",
+      "startMs": 43200,
+      "endMs": 43480
+    },
+    {
+      "word": "your",
+      "startMs": 43480,
+      "endMs": 43700
+    },
+    {
+      "word": "coverage",
+      "startMs": 43700,
+      "endMs": 44080
+    },
+    {
+      "word": "and",
+      "startMs": 44080,
+      "endMs": 44520
+    },
+    {
+      "word": "your",
+      "startMs": 44520,
+      "endMs": 44720
+    },
+    {
+      "word": "rate",
+      "startMs": 44720,
+      "endMs": 45020
+    },
+    {
+      "word": "if",
+      "startMs": 45020,
+      "endMs": 45820
+    },
+    {
+      "word": "you",
+      "startMs": 45820,
+      "endMs": 45880
+    },
+    {
+      "word": "have",
+      "startMs": 45880,
+      "endMs": 45980
+    },
+    {
+      "word": "any",
+      "startMs": 45980,
+      "endMs": 46080
+    },
+    {
+      "word": "questions.",
+      "startMs": 46080,
+      "endMs": 46520
+    },
+    {
+      "word": "Just",
+      "startMs": 46540,
+      "endMs": 47040
+    },
+    {
+      "word": "what's",
+      "startMs": 47040,
+      "endMs": 47480
+    },
+    {
+      "word": "happening",
+      "startMs": 47480,
+      "endMs": 47640
+    },
+    {
+      "word": "directly?",
+      "startMs": 47640,
+      "endMs": 48200
+    },
+    {
+      "word": "If",
+      "startMs": 49180,
+      "endMs": 49820
+    },
+    {
+      "word": "you",
+      "startMs": 49820,
+      "endMs": 49920
+    },
+    {
+      "word": "have",
+      "startMs": 49920,
+      "endMs": 50060
+    },
+    {
+      "word": "any",
+      "startMs": 50060,
+      "endMs": 50180
+    },
+    {
+      "word": "questions,",
+      "startMs": 50180,
+      "endMs": 50600
+    },
+    {
+      "word": "just",
+      "startMs": 50620,
+      "endMs": 51260
+    },
+    {
+      "word": "what's",
+      "startMs": 51260,
+      "endMs": 51900
+    },
+    {
+      "word": "happening",
+      "startMs": 51900,
+      "endMs": 52040
+    },
+    {
+      "word": "directly",
+      "startMs": 52040,
+      "endMs": 52420
+    },
+    {
+      "word": "or",
+      "startMs": 52420,
+      "endMs": 53620
+    },
+    {
+      "word": "scan",
+      "startMs": 53620,
+      "endMs": 53920
+    },
+    {
+      "word": "the",
+      "startMs": 53920,
+      "endMs": 54080
+    },
+    {
+      "word": "QR",
+      "startMs": 54080,
+      "endMs": 54340
+    },
+    {
+      "word": "code",
+      "startMs": 54340,
+      "endMs": 54720
+    },
+    {
+      "word": "below",
+      "startMs": 54720,
+      "endMs": 55100
+    },
+    {
+      "word": "I'll",
+      "startMs": 55100,
+      "endMs": 55900
+    },
+    {
+      "word": "get",
+      "startMs": 55900,
+      "endMs": 56040
+    },
+    {
+      "word": "back",
+      "startMs": 56040,
+      "endMs": 56240
+    },
+    {
+      "word": "you",
+      "startMs": 56240,
+      "endMs": 56420
+    },
+    {
+      "word": "right",
+      "startMs": 56420,
+      "endMs": 56640
+    },
+    {
+      "word": "away",
+      "startMs": 56640,
+      "endMs": 56960
+    },
+    {
+      "word": "looking",
+      "startMs": 56960,
+      "endMs": 57640
+    },
+    {
+      "word": "forward",
+      "startMs": 57640,
+      "endMs": 57960
+    },
+    {
+      "word": "to",
+      "startMs": 57960,
+      "endMs": 58160
+    },
+    {
+      "word": "keeping",
+      "startMs": 58160,
+      "endMs": 58480
+    },
+    {
+      "word": "you",
+      "startMs": 58480,
+      "endMs": 58800
+    },
+    {
+      "word": "underwriting",
+      "startMs": 58800,
+      "endMs": 58860
+    },
+    {
+      "word": "And",
+      "startMs": 58860,
+      "endMs": 59080
+    },
+    {
+      "word": "your",
+      "startMs": 59080,
+      "endMs": 59200
+    },
+    {
+      "word": "family",
+      "startMs": 59200,
+      "endMs": 59580
+    },
+    {
+      "word": "protected.",
+      "startMs": 59580,
+      "endMs": 60140
+    },
+    {
+      "word": "Take",
+      "startMs": 60700,
+      "endMs": 60980
+    },
+    {
+      "word": "care",
+      "startMs": 60980,
+      "endMs": 61180
+    }
+  ],
+  "overlays": [],
+  "wordsPerPage": 4,
+  "fontSize": 52,
+  "highlightColor": "#22D3EE"
+}

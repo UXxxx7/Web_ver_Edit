@@ -133,10 +133,10 @@ light/dark + chat-thread + gen-bar visual language, new palette.
 6. Root `README.md` (how to run both dev servers + Supabase local dev), `.env.example`, `.gitignore`
 7. Verify: `npm run build` clean; `uvicorn` boots and all 3 endpoints respond; sign-up → login → generate → see it saved in `generations` end to end
 
-## Roadmap (not built in this pass)
-- **Phase 2 — video clipping pipeline**: `pipeline_runner.py` + `worker.py` +
-  `webhook.py`. Needs its own plan (job queue, Remotion render, upload→plan→
-  confirm→preview→export UI). Captured requirements for when this starts:
+## Roadmap
+- **Phase 2 — video clipping pipeline + C-roll**: now actively planned, see
+  [`phase2_video_pipeline_plan.md`](./phase2_video_pipeline_plan.md) (2026-08-12).
+  Captured requirements for when the UI/template work in that phase starts: 
   - Rebrand the video templates' color palette to match the new Indigo/
     Electric-Blue system (currently the earthy "warm" `colorMode` — see
     `OpenMontage-p2/whatsapp_mvp/CLAUDE.md` Rule 4 for how `colorMode`

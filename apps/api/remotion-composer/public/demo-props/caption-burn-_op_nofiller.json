@@ -1,0 +1,274 @@
+{
+  "videoSrc": "public/talking-head/_op_nofiller.mp4",
+  "captions": [
+    {
+      "word": "Hi,",
+      "startMs": 0,
+      "endMs": 300
+    },
+    {
+      "word": "my",
+      "startMs": 560,
+      "endMs": 640
+    },
+    {
+      "word": "name",
+      "startMs": 640,
+      "endMs": 800
+    },
+    {
+      "word": "is",
+      "startMs": 800,
+      "endMs": 960
+    },
+    {
+      "word": "Lin,",
+      "startMs": 960,
+      "endMs": 1120
+    },
+    {
+      "word": "and",
+      "startMs": 1260,
+      "endMs": 1500
+    },
+    {
+      "word": "I'm",
+      "startMs": 1500,
+      "endMs": 1800
+    },
+    {
+      "word": "majoring",
+      "startMs": 1800,
+      "endMs": 2180
+    },
+    {
+      "word": "computer",
+      "startMs": 2180,
+      "endMs": 2480
+    },
+    {
+      "word": "science.",
+      "startMs": 2480,
+      "endMs": 2820
+    },
+    {
+      "word": "We",
+      "startMs": 3060,
+      "endMs": 3200
+    },
+    {
+      "word": "use",
+      "startMs": 3200,
+      "endMs": 3600
+    },
+    {
+      "word": "some",
+      "startMs": 3600,
+      "endMs": 4160
+    },
+    {
+      "word": "coding",
+      "startMs": 4160,
+      "endMs": 4880
+    },
+    {
+      "word": "platforms",
+      "startMs": 4880,
+      "endMs": 5300
+    },
+    {
+      "word": "like",
+      "startMs": 5300,
+      "endMs": 5800
+    },
+    {
+      "word": "VS",
+      "startMs": 5800,
+      "endMs": 6220
+    },
+    {
+      "word": "Code",
+      "startMs": 6220,
+      "endMs": 6480
+    },
+    {
+      "word": "to",
+      "startMs": 6480,
+      "endMs": 7180
+    },
+    {
+      "word": "build",
+      "startMs": 7180,
+      "endMs": 7480
+    },
+    {
+      "word": "some",
+      "startMs": 7480,
+      "endMs": 7740
+    },
+    {
+      "word": "applications.",
+      "startMs": 7740,
+      "endMs": 8240
+    },
+    {
+      "word": "Nowadays",
+      "startMs": 9080,
+      "endMs": 9500
+    },
+    {
+      "word": "we",
+      "startMs": 9500,
+      "endMs": 9880
+    },
+    {
+      "word": "have",
+      "startMs": 9880,
+      "endMs": 10340
+    },
+    {
+      "word": "AI",
+      "startMs": 10340,
+      "endMs": 11220
+    },
+    {
+      "word": "agents",
+      "startMs": 11220,
+      "endMs": 11640
+    },
+    {
+      "word": "like",
+      "startMs": 11640,
+      "endMs": 12180
+    },
+    {
+      "word": "Cloud",
+      "startMs": 12180,
+      "endMs": 13760
+    },
+    {
+      "word": "Code.",
+      "startMs": 13760,
+      "endMs": 14100
+    },
+    {
+      "word": "We",
+      "startMs": 14600,
+      "endMs": 15040
+    },
+    {
+      "word": "can",
+      "startMs": 15040,
+      "endMs": 15240
+    },
+    {
+      "word": "easily",
+      "startMs": 15240,
+      "endMs": 15700
+    },
+    {
+      "word": "ask",
+      "startMs": 15700,
+      "endMs": 16440
+    },
+    {
+      "word": "anything",
+      "startMs": 16440,
+      "endMs": 16760
+    },
+    {
+      "word": "in",
+      "startMs": 16760,
+      "endMs": 17180
+    },
+    {
+      "word": "Cloud",
+      "startMs": 17180,
+      "endMs": 17560
+    },
+    {
+      "word": "Code",
+      "startMs": 17560,
+      "endMs": 17820
+    },
+    {
+      "word": "to",
+      "startMs": 17820,
+      "endMs": 18040
+    },
+    {
+      "word": "get",
+      "startMs": 18040,
+      "endMs": 18200
+    },
+    {
+      "word": "the",
+      "startMs": 18200,
+      "endMs": 18440
+    },
+    {
+      "word": "answer",
+      "startMs": 18440,
+      "endMs": 18760
+    },
+    {
+      "word": "we",
+      "startMs": 18760,
+      "endMs": 19000
+    },
+    {
+      "word": "want,",
+      "startMs": 19000,
+      "endMs": 19260
+    },
+    {
+      "word": "and",
+      "startMs": 19560,
+      "endMs": 19840
+    },
+    {
+      "word": "we",
+      "startMs": 19840,
+      "endMs": 20000
+    },
+    {
+      "word": "can",
+      "startMs": 20000,
+      "endMs": 20180
+    },
+    {
+      "word": "build",
+      "startMs": 20180,
+      "endMs": 20500
+    },
+    {
+      "word": "AI",
+      "startMs": 20500,
+      "endMs": 21700
+    },
+    {
+      "word": "applications",
+      "startMs": 21700,
+      "endMs": 22240
+    },
+    {
+      "word": "based",
+      "startMs": 22240,
+      "endMs": 22860
+    },
+    {
+      "word": "on",
+      "startMs": 22860,
+      "endMs": 23120
+    },
+    {
+      "word": "it.",
+      "startMs": 23120,
+      "endMs": 23280
+    }
+  ],
+  "overlays": [],
+  "wordsPerPage": 4,
+  "fontSize": 52,
+  "highlightColor": "#22D3EE"
+}

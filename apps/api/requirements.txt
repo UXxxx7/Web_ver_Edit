@@ -6,3 +6,13 @@ pydantic>=2.0
 python-dotenv>=1.0
 requests>=2.31
 opencc-python-reimplemented>=0.1.7
+
+# Phase 2 (video pipeline) additions
+python-multipart>=0.0.9   # FastAPI File()/Form() uploads — /jobs, /croll, /voice-clone
+sqlalchemy>=2.0           # database.py's Job/User/Clip models
+redis>=5.0                # webhook.py's RQ enqueue path + /workers/health
+rq>=1.16                  # background job queue (USE_RQ_WORKER=true path; sync-in-thread otherwise)
+Pillow>=10.0               # qa_stills.py / reference_analyzer.py
+opencv-python>=4.9,<5      # tools/analysis/face_tracker.py — Haar-cascade; don't bump past <5, v5 drops cv2.CascadeClassifier
+numpy>=1.24                # face_tracker.py
+faster-whisper>=1.2.1

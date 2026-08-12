@@ -6,7 +6,9 @@ import { ResultCard } from "@/components/ResultCard";
 import { TOOL_META, type GenerationKind } from "@/lib/generation-types";
 import type { Generation } from "@/lib/data";
 
-const CJK_RE = /[一-鿿]/;
+// Matches whatsapp_mvp/lang.py's detect_lang() exactly (was missing the
+// CJK Extension A range 㐀-䶿 until this was checked against the source file).
+const CJK_RE = /[一-鿿㐀-䶿]/;
 
 type ChatMsg =
   | { id: string; role: "user"; icon: string; text: string }

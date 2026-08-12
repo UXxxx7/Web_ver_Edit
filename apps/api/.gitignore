@@ -3,3 +3,17 @@ __pycache__/
 *.pyc
 .env
 !.env.example
+
+# job data (uploads, renders, transcript caches) — mirrors OpenMontage-p2's
+# storage/jobs/ convention, gitignored there too
+storage/
+*.db
+*.db-shm
+*.db-wal
+
+# remotion-composer (Node subproject)
+remotion-composer/node_modules/
+remotion-composer/build/
+remotion-composer/.bundle-cache/
+remotion-composer/editor-dist/
+remotion-composer/*.log

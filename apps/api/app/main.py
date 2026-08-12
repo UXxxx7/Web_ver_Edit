@@ -1,8 +1,12 @@
-# OpenMontage Web API — FastAPI service wrapping the 3 brainstorm tools
-# ported from OpenMontage-p2/whatsapp_mvp. Stateless and DB-free on purpose
-# (see /implementation_plan.md): apps/web owns Supabase/mock-store and
-# forwards the caller's brand_voice_notes per request, so this service
-# doesn't need Supabase credentials of its own.
+# OpenMontage Web API — FastAPI service.
+#
+# Phase 0/1: the 3 brainstorm tools (stateless, no DB — apps/web owns
+# Supabase/mock-store and forwards brand_voice_notes per request).
+# Phase 2: webhook.py's video-editing job routes (/jobs/*, /editor/*,
+# /croll, /voice-clone, /files/*, ...) mounted as a router — see that
+# file's own header for what was stripped (WhatsApp-only routes) and
+# webhook.py/pipeline_runner.py's own comments for why the rest needed
+# no redesign (already a plain HTTP API, proven against real jobs).
 #
 # Called server-to-server only (Next.js Server Actions -> here), never
 # directly from a browser — no CORS middleware needed.
@@ -10,6 +14,7 @@
 from __future__ import annotations
 
 import logging
+from contextlib import asynccontextmanager
 from typing import Optional
 
 from fastapi import FastAPI
@@ -18,11 +23,20 @@ from pydantic import BaseModel
 from .content_idea import generate_content_idea
 from .shooting_script import generate_shooting_script
 from .video_script import generate_video_script
+from .webhook import _recover_orphaned_jobs, router as jobs_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="OpenMontage Web API")
+
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    _recover_orphaned_jobs()
+    yield
+
+
+app = FastAPI(title="OpenMontage Web API", lifespan=_lifespan)
+app.include_router(jobs_router)
 
 
 class BrainstormRequest(BaseModel):
