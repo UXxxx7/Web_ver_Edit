@@ -254,6 +254,49 @@ enforced by apps/api (see actions.ts's own header comment); the Remotion
 editor SPA (`/editor/*` routes) isn't exposed in this UI at all yet —
 still an open decision per the original plan.
 
+## 2026-08-12: 2c built (C-roll + voice-clone UI)
+
+`/croll` merges into the exact same `Job` lifecycle as `/jobs` once the
+HeyGen clip exists (confirmed reading `create_croll_endpoint`'s docstring
+and return shape — identical `{job_id, status}`, same `GET /jobs/{id}`
+polling from there on). So `JobProgress.tsx` was extracted out of
+`VideoEditor.tsx` as a shared component — `CrollCreator.tsx` (photo + hint
+form) and `VideoEditor.tsx` (video + edit_request form) both just create a
+job differently, then hand off to the same `JobProgress`. `VoiceCloneForm.tsx`
+is separate and simpler — `/voice-clone` is synchronous (no job, no
+polling), just a form → `{voice_id}` → done. `/edit` is now a 3-tab page
+(shadcn `Tabs`): Upload video / Photo → C-roll / Voice clone.
+
+**Verified**: `npm run build` clean. `/voice-clone` tested directly against
+apps/api with a synthetic sine-wave tone (deliberately not a real voice,
+no consent question) — correctly got back `502 {"detail":"voice clone
+creation failed"}` since `ELEVENLABS_API_KEY` is empty (same as Phase 2a),
+and confirmed the Next.js action's error parsing matches that shape.
+`/edit`'s three tabs confirmed rendering for a real authenticated session
+(same no-JS signup technique as 2a/2b's verification).
+
+**`/croll`'s happy path was NOT verified, and here's exactly why (a
+findings-worthy mistake, not just a gap):** tested it against a frame
+pulled from `~/video-studio/raw_demo1/*.mp4`, assumed from the folder name
+to be a talking-head demo recording. It's actually **classroom footage of
+a room full of children**. One frame (a crowd shot) was sent to HeyGen's
+API before this was caught — HeyGen's own content filter rejected it
+("NSFW content detected", almost certainly a false positive on the crowd
+scene, not an actual violation) before any digital-human video was
+generated, and the job correctly errored out with a clean message. Still:
+that frame should never have been sent. Stopped immediately, deleted both
+extracted frames and the local job directories holding them (confirmed via
+`git log` they were never staged/committed — `storage/` is gitignored).
+**Lesson for next time, stated plainly so it doesn't repeat**: check what's
+actually in a media file (open a frame, don't infer from a folder/file
+name) before sending any part of it to a third-party API, especially one
+that processes faces. Did not go find a replacement photo to force a
+success-path test — that needs the user to point at something they've
+actually confirmed is appropriate to send to HeyGen, not another guess.
+The plumbing (multipart upload reaches `/croll`, HeyGen call fires, error
+response parses and surfaces correctly, job state transitions correctly)
+is proven; the actual digital-human generation happy path is not.
+
 ## Explicitly not doing in this phase
 - Editor SPA exposure decision (revisit after 2a/2b)
 - `social_batch.py`/`social_caption.py` (Phase 4)
