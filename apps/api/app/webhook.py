@@ -272,37 +272,14 @@ async def qa_endpoint(text: str = Form(...)):
     return {"answer": answer}
 
 
-@router.post("/content-ideas")
-async def content_ideas_endpoint(direction: str = Form(...), lang: str = Form("zh")):
-    """无状态：用户给一个方向/主题，不需要视频、不建 job——直接返回一条可
-    复制发帖的样品文案。dashboard 的"给个方向出 idea"入口打这里。生成失败
-    （没配 key/调用失败/解析失败）返回 200 + idea:null，前端按"没生成成功"
-    展示，不是 500——跟这个代码库其余生成式功能同一个约定（宁可明确告知失败，
-    不编一份假结果）。"""
-    from .content_idea import generate_content_idea
-
-    idea = generate_content_idea(direction, lang=lang)
-    return {"idea": idea}
-
-
-@router.post("/shooting-scripts")
-async def shooting_scripts_endpoint(direction: str = Form(...), lang: str = Form("zh")):
-    """无状态：方向/主题 -> 拍摄分镜表（怎么拍，不是台词）。跟 /content-ideas
-    同一个约定，失败返回 200 + script:null，不是 500。"""
-    from .shooting_script import generate_shooting_script
-
-    script = generate_shooting_script(direction, lang=lang)
-    return {"script": script}
-
-
-@router.post("/video-scripts")
-async def video_scripts_endpoint(direction: str = Form(...), lang: str = Form("zh")):
-    """无状态：方向/主题 -> 镜头前口播文案（讲乜嘢，不是发帖配文）。跟
-    /content-ideas 同一个约定，失败返回 200 + script:null，不是 500。"""
-    from .video_script import generate_video_script
-
-    script = generate_video_script(direction, lang=lang)
-    return {"script": script}
+# /content-ideas, /shooting-scripts, /video-scripts used to live here as
+# Form-encoded endpoints (ported from the original WhatsApp gateway). They
+# were silently shadowing main.py's JSON versions of the exact same three
+# paths — app.include_router(jobs_router) ran before main.py's own route
+# defs, so Starlette matched these first, and apps/web's JSON POST bodies
+# got parsed as empty Form data ("direction" missing) every time. Removed:
+# main.py's versions are the ones apps/web actually calls (see its own
+# BrainstormRequest model), so these were pure dead weight once found.
 
 
 @router.post("/transcribe")
