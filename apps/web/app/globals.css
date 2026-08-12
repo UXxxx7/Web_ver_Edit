@@ -106,6 +106,46 @@
   --dash-nav-bg: #FFFFFF;
 }
 
+/* Pins the light palette regardless of system/OS dark mode — for pages
+   (marketing landing) that should always read as premium-white, not follow
+   the app's normal system-theme dark mode. Custom properties inherit down
+   the DOM tree, so redeclaring them here on a descendant wins over
+   whatever .dark set higher up (e.g. on <html> from next-themes). */
+.force-light {
+  --background: #F4F6FB;
+  --foreground: #0F1B3C;
+  --card: #FFFFFF;
+  --card-foreground: #0F1B3C;
+  --popover: #FFFFFF;
+  --popover-foreground: #0F1B3C;
+  --primary: #3E63FF;
+  --primary-foreground: #FFFFFF;
+  --secondary: #EEF1F8;
+  --secondary-foreground: #0F1B3C;
+  --muted: #EEF1F8;
+  --muted-foreground: #5B6B8C;
+  --accent: #E7ECFB;
+  --accent-foreground: #0F1B3C;
+  --border: #DEE3F0;
+  --input: #DEE3F0;
+  --ring: #3E63FF;
+
+  /* The brainstorm dashboard (.dash, .gen-bar, .bubble, ...) reads its own
+     --dash-* tokens, not the shadcn ones above — pin those too so the whole
+     app (not just /welcome and auth) stays premium-white. */
+  --dash-bg: #F4F6FB;
+  --dash-card: #FFFFFF;
+  --dash-text: #0F1B3C;
+  --dash-muted: #5B6B8C;
+  --dash-accent: #3E63FF;
+  --dash-accent-ink: #FFFFFF;
+  --dash-border: #DEE3F0;
+  --dash-pill-bg: color-mix(in srgb, #3E63FF 12%, transparent);
+  --dash-bubble-user: #0F1B3C;
+  --dash-bubble-user-text: #F4F6FB;
+  --dash-nav-bg: #FFFFFF;
+}
+
 .dark {
   --background: #0B1020;
   --foreground: #EDEFF7;
@@ -172,11 +212,9 @@
   min-height: 100%; display: flex; flex-direction: column;
 }
 
-.gen-bar {
-  display: flex; align-items: center; gap: 8px; padding: 10px 20px;
-  border-bottom: 1px solid var(--dash-border); flex-shrink: 0;
-}
-.gen-bar.primary { background: var(--dash-pill-bg); }
+.gen-bar-wrap { padding: 10px 20px; border-bottom: 1px solid var(--dash-border); flex-shrink: 0; }
+.gen-bar-wrap.primary { background: var(--dash-pill-bg); }
+.gen-bar { display: flex; align-items: center; gap: 8px; }
 .gen-bar-icon { flex-shrink: 0; }
 .gen-bar input[type="text"] {
   flex: 1; border: 1px solid var(--dash-border); background: var(--dash-card); color: var(--dash-text);
@@ -191,6 +229,14 @@
 }
 .gen-bar button:hover:not(:disabled) { transform: translateY(-1px); }
 .gen-bar button:disabled { opacity: 0.6; cursor: default; }
+
+.gen-suggestions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; padding-left: 26px; }
+.gen-chip {
+  border: 1px solid var(--dash-border); background: var(--dash-card); color: var(--dash-muted);
+  border-radius: 999px; padding: 4px 11px; font-size: 11.5px; font-weight: 500; line-height: 1.4;
+  cursor: pointer; transition: border-color 0.15s ease, color 0.15s ease; font-family: inherit; white-space: nowrap;
+}
+.gen-chip:hover { border-color: var(--dash-accent); color: var(--dash-accent); }
 
 .dash-main { flex: 1; overflow-y: auto; padding: 24px 16px 40px; display: flex; justify-content: center; }
 .thread { width: 100%; max-width: 720px; display: flex; flex-direction: column; gap: 18px; }
