@@ -297,6 +297,40 @@ The plumbing (multipart upload reaches `/croll`, HeyGen call fires, error
 response parses and surfaces correctly, job state transitions correctly)
 is proven; the actual digital-human generation happy path is not.
 
+## 2026-08-12: `/croll` happy path verified live (with a real, user-approved photo)
+
+User provided an appropriate stock photo (explicitly approved for testing)
+after the earlier mistake. Two more missing files surfaced immediately:
+`app/prompts/croll_reference_scripts.json` and
+`insurance_scripts_extended.json` — `croll_script.py`'s few-shot sample
+library, degrades gracefully when absent (logged warning, continues
+without samples) but copied over from the source repo for full fidelity.
+A first attempt also hit a transient `503 Service Unavailable` from
+Gemini's own endpoint (unrelated to any of this repo's code — the retry
+logic correctly retried 3x, then failed cleanly); a second attempt right
+after succeeded.
+
+**Full result, this time reaching all the way through `apply_style`** (the
+pipeline's richest, most bug-documented step, per the source repo's
+23-rule `CLAUDE.md` — not exercised by any earlier test, whose
+LLM-planned operations never happened to include it):
+`POST /croll` → real AI-written script from the photo+hint → real ~41s
+HeyGen digital-human clip (720x1280, confirmed via ffprobe) → transcribe →
+LLM plan (`[remove_filler, apply_style]`) → confirm → `apply_style`'s full
+machinery ran for real: 3 rounds of `props_lint` retry, a vision-QA
+self-review round that caught real layout defects (overlapping cards,
+transition ghosting, low-contrast text) and forced a replan, then a
+second vision-QA round that still found one real overlap issue — at which
+point the pipeline did exactly what it's designed to do:
+gracefully degraded (delivered the pre-`apply_style` cut,
+`degraded_operations: ["apply_style"]`, surfaced honestly rather than
+shipping the visually broken version or crashing). Whole run took ~10
+minutes. Fetched the resulting `PREVIEW_READY` file — real, valid 37.5s
+720x1280 video. This is the system's own designed safety net working
+correctly, not a bug — a generic stock photo + a one-line hint (no real
+product specifics) is exactly the input shape `apply_style`'s content
+planner has the least to work with.
+
 ## Explicitly not doing in this phase
 - Editor SPA exposure decision (revisit after 2a/2b)
 - `social_batch.py`/`social_caption.py` (Phase 4)

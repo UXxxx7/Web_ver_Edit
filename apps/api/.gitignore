@@ -11,9 +11,13 @@ storage/
 *.db-shm
 *.db-wal
 
-# remotion-composer (Node subproject)
+# remotion-composer (Node subproject). `build` is a symlink (into Remotion's
+# own cache), not a real directory — a trailing-slash pattern silently fails
+# to match a symlink, confirmed live (`git check-ignore` returned nothing
+# for it until this was fixed), so no trailing slash here.
 remotion-composer/node_modules/
-remotion-composer/build/
+remotion-composer/build
 remotion-composer/.bundle-cache/
+remotion-composer/.bundle.lock
 remotion-composer/editor-dist/
 remotion-composer/*.log
