@@ -56,3 +56,13 @@ export const OPERATION_LABELS: Record<string, string> = {
   auto_reframe: "Auto-reframe to 9:16",
   color_grade: "Color grade",
 };
+
+export const OPERATION_LABELS_ZH: Record<string, string> = {
+  remove_filler: "剪走贅字同重講嘅位",
+  remove_silences: "剪走靜音位/長停頓",
+  add_subtitles: "加字幕",
+  apply_style: "套用動畫樣式",
+  insert_broll: "加插B-roll",
+  auto_reframe: "自動剪裁做9:16直度",
+  color_grade: "調色",
+};

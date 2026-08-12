@@ -1,9 +1,10 @@
-import { Dashboard } from "@/components/Dashboard";
+import { DashboardHome } from "@/components/DashboardHome";
 import { requireUser } from "@/lib/auth";
-import { listGenerations } from "@/lib/data";
+import { getProfile } from "@/lib/data";
+import { getLang } from "@/lib/i18n.server";
 
 export default async function DashboardPage() {
   const user = await requireUser();
-  const history = await listGenerations(user.id);
-  return <Dashboard initialHistory={history} />;
+  const [profile, lang] = await Promise.all([getProfile(user.id), getLang()]);
+  return <DashboardHome profileRole={profile.role} lang={lang} />;
 }
