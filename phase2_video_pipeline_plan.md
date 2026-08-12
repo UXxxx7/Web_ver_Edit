@@ -213,6 +213,47 @@ add_subtitles]`, no `apply_style`), C-roll (`/croll`), voice-clone
 `HEYGEN_API_KEY` (key is in place, endpoint untested). These are real
 next-verification-pass candidates, not assumed working by extension.
 
+## 2026-08-12: 2b built (frontend job-lifecycle UI)
+
+New `/edit` route in `apps/web`: upload form → poll → plan review/confirm →
+preview + revise → export → final video + download, matching the
+`JobStatus` state machine exactly (`lib/edit-jobs.ts`). Server Actions in
+`app/(app)/edit/actions.ts` call apps/api's already-proven routes
+(`POST /jobs` with `wa_number` = the site's own user id, `GET /jobs/{id}`
+polled every 4s while in an in-progress status, `/confirm`, `/render`,
+`/retry`, `/revise`). A new Route Handler (`/api/edit-files/[jobId]/
+[filename]`) proxies `GET /files/...` so the browser still never talks to
+apps/api directly — same reasoning as the brainstorm tools.
+
+**Verified**: `npm run build` clean. Real end-to-end against a live
+apps/api: signed up a real user (same no-JS Server Action technique as
+Phase 0/1's verification), confirmed `/edit` renders authenticated,
+created+confirmed+rendered a real job directly against apps/api (same
+`wa_number`/field names the UI's Server Actions use), then fetched the
+real rendered preview through the Next.js proxy route with the real
+session cookie (200, valid video bytes) and confirmed an unauthenticated
+request is blocked (proxy.ts's session gate redirects before the route
+handler's own check even runs).
+
+**Not verified**: an actual browser click-through of the upload form
+itself. Unlike login/signup (which bind a Server Action directly to
+`<form action={fn}>` and progressively enhance to a plain HTML POST I
+could replay with curl), the upload form's `action={(fd) => handleUpload(fd)}`
+wraps the server action in a client function — invoking it goes through
+React's Flight/`callServer` wire protocol, which isn't practically
+replayable by hand. The underlying HTTP contract it calls is the same
+one already proven working directly against apps/api above, and the build
+type-checks the whole call chain, but a real click in a real browser is
+the next thing to actually do, not assumed from this.
+
+**Known, deliberate gaps** (not overlooked): `NEEDS_CLARIFICATION` has no
+answer path yet (no dedicated endpoint exists on the backend for it either
+— see webhook.py's own scope-boundary comment about the editor SPA for the
+same pattern of "documented gap, not a miss"); job ownership isn't
+enforced by apps/api (see actions.ts's own header comment); the Remotion
+editor SPA (`/editor/*` routes) isn't exposed in this UI at all yet —
+still an open decision per the original plan.
+
 ## Explicitly not doing in this phase
 - Editor SPA exposure decision (revisit after 2a/2b)
 - `social_batch.py`/`social_caption.py` (Phase 4)
