@@ -82,6 +82,13 @@ export async function createVoiceClone(formData: FormData): Promise<ActionResult
   return { ok: true, data: { voiceId: data.voice_id } };
 }
 
+// Video-editing job. Beyond the main video/edit_request, forwards the
+// Arm-B (AI-authored) inputs the apps/api /jobs route already accepts but
+// the web UI never sent: `arm` (arm_a|arm_b selector), an optional style
+// `reference` clip/image, and any number of manual `broll` assets each
+// with an aligned label (cue) and kind. Signature stays a single FormData —
+// AgentChat packs these in — so adding fields later needs no signature change.
+// See armb_web_wiring_plan.md §4 and webhook.py's create_job_endpoint.
 export async function createEditJob(formData: FormData): Promise<ActionResult<{ jobId: string }>> {
   const user = await requireUser();
   const video = formData.get("video");
@@ -94,6 +101,31 @@ export async function createEditJob(formData: FormData): Promise<ActionResult<{ 
   upstream.set("edit_request", editRequest);
   upstream.set("pipeline", "talking-head");
   upstream.set("wa_number", user.id);
+
+  // Arm selection: only pass arm_a / arm_b through; anything else is dropped
+  // so the backend falls back to its default routing (arm_router.resolve_arm).
+  const arm = String(formData.get("arm") ?? "").trim().toLowerCase();
+  if (arm === "arm_a" || arm === "arm_b") upstream.set("arm", arm);
+
+  // Optional style-reference video/image → apps/api globs it to style_ref.<ext>.
+  const reference = formData.get("reference");
+  if (reference instanceof File && reference.size > 0) {
+    upstream.set("reference", reference, reference.name);
+    const refKind = String(formData.get("reference_kind") ?? "").trim().toLowerCase();
+    if (refKind === "image" || refKind === "video") upstream.set("reference_kind", refKind);
+  }
+
+  // Manual b-roll: multi-file, with per-index aligned labels (cues) and kinds.
+  // All three arrays must stay same-order/same-length; `?? ""` backfills so a
+  // missing label/kind never shifts the alignment (see webhook.py List[...] parsing).
+  const brolls = formData.getAll("broll").filter((f): f is File => f instanceof File && f.size > 0);
+  const brollLabels = formData.getAll("broll_labels").map((v) => String(v ?? ""));
+  const brollKinds = formData.getAll("broll_kinds").map((v) => String(v ?? ""));
+  brolls.forEach((file, i) => {
+    upstream.append("broll", file, file.name);
+    upstream.append("broll_labels", brollLabels[i] ?? "");
+    upstream.append("broll_kinds", brollKinds[i] ?? "");
+  });
 
   let res: Response;
   try {

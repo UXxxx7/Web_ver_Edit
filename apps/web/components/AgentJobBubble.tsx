@@ -40,7 +40,10 @@ export function AgentJobBubble({ job, onUpdate }: { job: EditJob; onUpdate: (job
   const [editorUrl, setEditorUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!IN_PROGRESS_STATUSES.includes(job.status)) return;
+    // Skip polling for the PENDING placeholder (empty job_id) — it has an
+    // in-progress status but no real id yet, so polling would hit `/jobs/`
+    // (empty) in a loop (307 -> 405) until AgentChat swaps in the real job.
+    if (!job.job_id || !IN_PROGRESS_STATUSES.includes(job.status)) return;
     const jobId = job.job_id;
     const id = setInterval(async () => {
       const result = await getEditJobStatus(jobId);
