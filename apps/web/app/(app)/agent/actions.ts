@@ -25,6 +25,18 @@ const API_BASE = process.env.API_BASE_URL || "http://localhost:8001";
 // narrowing reliably picks the right branch after `if (result.ok)`.
 export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: string };
 
+// Both /jobs and /croll accept the same broll[]/broll_labels[]/broll_kinds[]
+// shape (webhook.py deliberately keeps their registration logic line-for-
+// line aligned — see create_croll_endpoint's own docstring on why). Shared
+// here so AgentChat's staged-attachments list (video/photo + extra photos
+// as broll + an extra video as the style reference) forwards identically
+// regardless of which endpoint it's headed to.
+function appendBroll(upstream: FormData, formData: FormData) {
+  for (const f of formData.getAll("broll")) if (f instanceof File) upstream.append("broll", f, f.name);
+  for (const l of formData.getAll("broll_labels")) upstream.append("broll_labels", String(l));
+  for (const k of formData.getAll("broll_kinds")) upstream.append("broll_kinds", String(k));
+}
+
 // /croll merges into the exact same Job lifecycle as /jobs once the
 // HeyGen-generated clip exists (see webhook.py's create_croll_endpoint
 // docstring) — same {job_id, status} shape, same GET /jobs/{id} polling,
@@ -43,6 +55,7 @@ export async function createCrollJob(formData: FormData): Promise<ActionResult<{
   upstream.set("lang", lang);
   upstream.set("pipeline", "talking-head");
   upstream.set("wa_number", user.id);
+  appendBroll(upstream, formData);
 
   let res: Response;
   try {
@@ -94,6 +107,12 @@ export async function createEditJob(formData: FormData): Promise<ActionResult<{ 
   upstream.set("edit_request", editRequest);
   upstream.set("pipeline", "talking-head");
   upstream.set("wa_number", user.id);
+  appendBroll(upstream, formData);
+  const reference = formData.get("reference");
+  if (reference instanceof File && reference.size > 0) {
+    upstream.set("reference", reference, reference.name);
+    upstream.set("reference_kind", String(formData.get("reference_kind") ?? "video"));
+  }
 
   let res: Response;
   try {

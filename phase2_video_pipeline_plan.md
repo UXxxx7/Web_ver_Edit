@@ -382,6 +382,55 @@ props end-to-end (needs a completed job with real `_op_apply_style_props.json`
 on disk, which the cleanup after the last `/croll` test deleted) — next
 concrete thing to check, not assumed working from the plumbing checks alone.
 
+## 2026-08-12: Agent chat fidelity pass + standalone Editor entry
+
+User supplied 4 real WhatsApp screenshots of the original product as a
+reference and one screenshot of the manual editor, then two concrete asks:
+
+1. **Editor needed a real standalone entry point**, not a link buried
+   inside a chat bubble. Added: nav → `/editor` → `EditorPicker.tsx` (lists
+   job ids from `lib/recent-jobs.ts`, a client-side localStorage list
+   `AgentChat` appends to when it creates a job — apps/api has no
+   "list jobs by user" endpoint yet, so this is what "recent" means for
+   now; a manual job-id paste field covers jobs from elsewhere). The
+   contextual "Open manual editor" link inside a job's chat bubble stays
+   too, as a shortcut — the standalone page was the missing piece, not a
+   replacement.
+2. **The Agent chat was missing real interaction depth** the screenshots
+   made obvious:
+   - **Multi-attachment collection**: the original lets you send several
+     files before "go" (main video + b-roll photos + a style-reference
+     video) — the UI only fired a job per single attachment before this.
+     Now: attachments stage in a chip row (📎 button can be clicked
+     repeatedly), each gets an ack bot message ("已收到第 N 个视频/图片…"),
+     Send finalizes: first video = main, a 2nd video = the style reference
+     (`/jobs`' own `reference`/`reference_kind` fields), any images = b-roll
+     (`broll[]`/`broll_labels[]`/`broll_kinds[]` — same shape `/croll`
+     already used, extended to `/jobs` here since the UI never sent them
+     before). Audio attachments bypass staging — fire immediately as
+     voice-clone, since that's a distinct action, not part of "the video".
+   - **Plan messages render as markdown** (`react-markdown` + `.agent-markdown`
+     CSS) instead of plain whitespace-pre-wrap text — headers/bold/lists
+     from `planned_edit.summary` actually render now, matching the
+     structured "依据/实际" reasoning shown in the WhatsApp screenshots.
+   - **Heartbeat reassurance messages**: WhatsApp's `worker.js` sends "还在
+     处理中，这一步比预计慢一点…" a few times during long (3-10+ min) steps
+     instead of leaving a single static spinner up. Reproduced client-side
+     in `AgentJobBubble` — a 60s-interval check inside the existing polling
+     loop appends a new bot text bubble via an `onHeartbeat` callback
+     (lifted up to `AgentChat` since only it can append arbitrary new
+     thread messages, not just update the job's own bubble in place).
+
+**Verified**: `npm run build` clean; `/agent` and `/editor` both render for
+a real authenticated session. **Not yet verified**: an actual multi-file
+staged submission end-to-end (does `/jobs` really register broll+reference
+correctly when called this way — the fields were already proven working
+individually in earlier phases, but not through this exact new staging
+path), and the heartbeat firing during a real long render (needs a job to
+actually run past 60s while someone's watching, wasn't specifically
+re-tested this pass). Next live-testing candidates, not assumed from the
+build passing.
+
 ## Explicitly not doing in this phase
 - Editor SPA exposure decision (revisit after 2a/2b)
 - `social_batch.py`/`social_caption.py` (Phase 4)
