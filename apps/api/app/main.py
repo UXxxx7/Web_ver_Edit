@@ -15,9 +15,12 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from .content_idea import generate_content_idea
@@ -36,7 +39,37 @@ async def _lifespan(_app: FastAPI):
 
 
 app = FastAPI(title="OpenMontage Web API", lifespan=_lifespan)
+
+# Same router at two prefixes on purpose: unprefixed for apps/web's Server
+# Actions (POST /jobs, /croll, /voice-clone, ...), and again under /api/
+# because the manual editor SPA (ported byte-for-byte from
+# OpenMontage-p2/remotion-composer/editor/ — see the block below) has its
+# own fetch calls hardcoded to `/api/editor/{jobId}/...` (its vite.config.ts
+# comment explains why: in the original deployment, server/index.js fronted
+# both the Python API under /api/* and this static build under /editor/*,
+# on one origin). Reproducing that origin-and-prefix shape here, rather
+# than patching the SPA's fetch calls, is what "ported unchanged" means.
 app.include_router(jobs_router)
+app.include_router(jobs_router, prefix="/api")
+
+# ---------------------------------------------------------------------------
+# Manual editor SPA (ported unchanged from remotion-composer/editor/,
+# built via `npm run build:editor` -> editor-dist/). vite.config.ts hardcodes
+# `base: "/editor/"`, so its own asset URLs are /editor/assets/*; the shell
+# page it expects to be served at is /editor/<job_id> (job id read from the
+# URL path client-side, see App.tsx's useJobIdAndToken). Both are added
+# without touching webhook.py's existing /editor/{job_id}/props etc. routes
+# above — those take 3 path segments, this shell route takes exactly 2, so
+# FastAPI's path-parameter matching never confuses the two.
+_EDITOR_DIST = Path(__file__).resolve().parent.parent / "remotion-composer" / "editor-dist"
+if _EDITOR_DIST.is_dir():
+    app.mount("/editor/assets", StaticFiles(directory=str(_EDITOR_DIST / "assets")), name="editor-assets")
+
+    @app.get("/editor/{job_id}")
+    def editor_shell(job_id: str):
+        return FileResponse(str(_EDITOR_DIST / "index.html"))
+else:
+    logger.warning(f"editor-dist not found at {_EDITOR_DIST} — run `npm run build:editor` in remotion-composer/")
 
 
 class BrainstormRequest(BaseModel):

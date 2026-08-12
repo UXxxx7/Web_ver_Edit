@@ -21,8 +21,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <Link href="/" className="rounded-md px-3 py-1.5 font-semibold text-muted-foreground hover:bg-accent hover:text-foreground">
             Dashboard
           </Link>
-          <Link href="/edit" className="rounded-md px-3 py-1.5 font-semibold text-muted-foreground hover:bg-accent hover:text-foreground">
-            Editor
+          <Link href="/agent" className="rounded-md px-3 py-1.5 font-semibold text-muted-foreground hover:bg-accent hover:text-foreground">
+            Agent
           </Link>
           <Link href="/profile" className="rounded-md px-3 py-1.5 font-semibold text-muted-foreground hover:bg-accent hover:text-foreground">
             Profile

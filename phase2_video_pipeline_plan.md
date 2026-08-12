@@ -331,6 +331,57 @@ correctly, not a bug — a generic stock photo + a one-line hint (no real
 product specifics) is exactly the input shape `apply_style`'s content
 planner has the least to work with.
 
+## 2026-08-12: interaction redesign — Agent chat + manual editor ported
+
+After seeing the tab+form `/edit` page live, user clarified the actual
+product shape (matching the original WhatsApp product exactly): three
+distinct surfaces, not one.
+1. **Dashboard** — the 3 brainstorm tools, already chat-bubble-styled. No change.
+2. **Agent** — the auto-generate flow (upload video+describe / photo→C-roll
+   / voice-clone). Was tabs+forms+cards; redesigned as a single WhatsApp-shaped
+   chat thread: one compose bar (📎 attach + text + send), the attached
+   file's MIME type decides what happens (video→edit job, image→C-roll,
+   audio→voice-clone) — reproducing `_handle_message`'s original dispatch-
+   by-attachment-type *shape*, not its removed WhatsApp-specific code.
+   `components/AgentChat.tsx` (thread + compose bar) + `AgentJobBubble.tsx`
+   (job status/plan/preview/export rendered as a self-updating bot bubble,
+   adapted from the old `JobProgress.tsx` card version, now deleted along
+   with `VideoEditor.tsx`/`CrollCreator.tsx`/`VoiceCloneForm.tsx` and the
+   old `/edit` tab page). Route moved `/edit` → `/agent`; nav updated.
+3. **Editor (manual)** — the real Remotion-props visual editor
+   (`remotion-composer/editor/` — Timeline, Inspector, Library panel,
+   phone-shell preview, already ported as source in Phase 2a but never
+   built/served). Ported **unchanged**, not redesigned: built via
+   `npm run build:editor` → `editor-dist/`, mounted directly in
+   `apps/api/app/main.py` — `StaticFiles` at `/editor/assets` (matches
+   `vite.config.ts`'s hardcoded `base: "/editor/"`, confirmed by reading it
+   rather than guessing) + a `GET /editor/{job_id}` shell route (exactly 2
+   path segments, so it can't collide with the existing 3-segment
+   `/editor/{job_id}/props` etc. API routes already in `webhook.py`) +
+   `jobs_router` additionally mounted under an `/api` prefix, because the
+   SPA's own `App.tsx` hardcodes its fetches to `/api/editor/{jobId}/...`
+   (this is why: the original `server/index.js` fronted both the Python
+   API under `/api/*` and this static build under `/editor/*` on one
+   origin — reproducing that shape was the only way to keep the SPA byte-
+   for-byte unchanged rather than patching its fetch calls). `EDITOR_TOKEN_SECRET`
+   added to `.env` (was unset, `editor_token.py` fails closed without it).
+   No top-level nav entry for it — reached contextually via an "Open manual
+   editor" button inside a job's `AgentJobBubble` once it's PREVIEW_READY/DONE
+   (`getEditorUrl` action → `POST /jobs/{id}/editor_token` → opens the
+   signed link in a new tab), matching how it was actually reached
+   originally (never a standalone destination without a job).
+
+**Verified**: `npm run build` clean. Live: SPA shell (`GET /editor/<id>`)
+returns real HTML referencing `/editor/assets/*`; that JS asset serves
+correctly; both `/editor/{id}/props` and `/api/editor/{id}/props` resolve
+to the same route (confirmed via 403-not-404 with a fake token, proving no
+routing collision) exactly as the segment-count reasoning predicted.
+`/agent` renders correctly for a real authenticated session. **Not yet
+verified**: the editor SPA actually loading and rendering a real job's
+props end-to-end (needs a completed job with real `_op_apply_style_props.json`
+on disk, which the cleanup after the last `/croll` test deleted) — next
+concrete thing to check, not assumed working from the plumbing checks alone.
+
 ## Explicitly not doing in this phase
 - Editor SPA exposure decision (revisit after 2a/2b)
 - `social_batch.py`/`social_caption.py` (Phase 4)

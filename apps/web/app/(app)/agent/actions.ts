@@ -3,7 +3,7 @@
 // Server Actions wrapping apps/api's video-editing job routes
 // (webhook.py, Phase 2a) — server-to-server only, matches the same
 // pattern as app/(app)/actions.ts's generateContentAction. Called
-// directly as async functions from VideoEditor.tsx (a Client Component),
+// directly as async functions from AgentChat.tsx (a Client Component),
 // not via <form action> — needed for polling (getEditJobStatus) which
 // isn't a form submission.
 //
@@ -148,4 +148,15 @@ export async function reviseEditJob(jobId: string, text: string): Promise<Action
   const form = new FormData();
   form.set("text", text);
   return postAction(`/jobs/${encodeURIComponent(jobId)}/revise`, form);
+}
+
+// Manual editor (ported unchanged from remotion-composer/editor/, see
+// main.py) — a signed, time-limited link, not a Next.js route. Opens in a
+// new tab pointed straight at apps/api (config.public_base_url), same as
+// the original WhatsApp flow's "open editor" link.
+export async function getEditorUrl(jobId: string): Promise<ActionResult<{ editorUrl: string }>> {
+  const result = await postAction(`/jobs/${encodeURIComponent(jobId)}/editor_token`);
+  if (!result.ok) return result;
+  const editorUrl = (result.data as unknown as { editor_url: string }).editor_url;
+  return { ok: true, data: { editorUrl } };
 }
