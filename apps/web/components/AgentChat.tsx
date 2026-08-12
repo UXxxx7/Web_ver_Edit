@@ -19,6 +19,7 @@
 import { useRef, useState } from "react";
 import { createCrollJob, createEditJob, createVoiceClone, getEditJobStatus } from "@/app/(app)/agent/actions";
 import { AgentJobBubble } from "@/components/AgentJobBubble";
+import { addRecentJob } from "@/lib/recent-jobs";
 import type { EditJob } from "@/lib/edit-jobs";
 
 type Media = "video" | "image" | "audio";
@@ -236,6 +237,7 @@ export function AgentChat() {
       setSending(false);
       return;
     }
+    addRecentJob(result.data.jobId);   // so the standalone /editor picker can list it
     const status = await getEditJobStatus(result.data.jobId);
     if (status.ok) updateJobMessage(botId, status.data);
     setSending(false);
@@ -266,7 +268,7 @@ export function AgentChat() {
             return (
               <div key={msg.id} className="msg from-bot">
                 <div className="bubble">
-                  {msg.kind === "text" ? msg.text : <AgentJobBubble job={msg.job} onUpdate={(job) => updateJobMessage(msg.id, job)} />}
+                  {msg.kind === "text" ? msg.text : <AgentJobBubble job={msg.job} onUpdate={(job) => updateJobMessage(msg.id, job)} onHeartbeat={pushBotText} />}
                 </div>
               </div>
             );
