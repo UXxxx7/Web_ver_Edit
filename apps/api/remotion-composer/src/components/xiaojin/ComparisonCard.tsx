@@ -152,7 +152,7 @@ export const ComparisonCard: React.FC<ComparisonCardProps> = ({
               opacity: badgePop,
             }}
           >
-            <span style={{ fontFamily: headingFont, fontSize: 18, fontWeight: 800, color: palette.bg }}>VS</span>
+            <span style={{ fontFamily: headingFont, fontSize: 18, fontWeight: 800, color: palette.card }}>VS</span>
           </div>
         ) : null}
       </div>

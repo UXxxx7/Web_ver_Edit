@@ -78,7 +78,7 @@ export const StatCard: React.FC<StatCardProps> = ({
         overflow: "hidden",
       }}
     >
-      <div style={{ height: 6, width: "100%", background: "linear-gradient(90deg,#E0552F,#E8A13C)" }} />
+      <div style={{ height: 6, width: "100%", background: "linear-gradient(90deg,#4F46E5,#FF6B35)" }} />
       <div style={{ padding: "26px 34px 30px" }}>
         <div
           style={{
@@ -86,7 +86,7 @@ export const StatCard: React.FC<StatCardProps> = ({
             fontSize: 24,
             fontWeight: 800,
             letterSpacing: 2,
-            color: "#E0552F",
+            color: "#4F46E5",
             marginBottom: 18,
           }}
         >
@@ -94,7 +94,7 @@ export const StatCard: React.FC<StatCardProps> = ({
         </div>
         <div
           style={{
-            background: "#F3F1EC",
+            background: "#F5F5F2",
             borderRadius: 14,
             padding: "20px 26px",
             display: "flex",
@@ -102,14 +102,14 @@ export const StatCard: React.FC<StatCardProps> = ({
             alignItems: "center",
           }}
         >
-          <span style={{ fontFamily: labelFont, fontSize: 22, fontWeight: 700, letterSpacing: 1, color: "#5A5348" }}>
+          <span style={{ fontFamily: labelFont, fontSize: 22, fontWeight: 700, letterSpacing: 1, color: "#6B6F76" }}>
             {label.toUpperCase()}
           </span>
           <span>
-            <span style={{ fontFamily: headingFont, fontSize: 52, fontWeight: 800, color: "#E0552F" }}>
+            <span style={{ fontFamily: headingFont, fontSize: 52, fontWeight: 800, color: "#4F46E5" }}>
               {displayValue}
             </span>
-            <span style={{ fontFamily: labelFont, fontSize: 18, fontWeight: 700, color: "#8A8272", marginLeft: 8 }}>
+            <span style={{ fontFamily: labelFont, fontSize: 18, fontWeight: 700, color: "#6B6F76", marginLeft: 8 }}>
               {unit.toUpperCase()}
             </span>
           </span>

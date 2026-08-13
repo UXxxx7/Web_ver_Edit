@@ -79,14 +79,22 @@ def _post_bounded(
     return future.result(timeout=hard_deadline_s if hard_deadline_s is not None else _HARD_CALL_DEADLINE_S)
 
 
-# Was 3, then 2 — user call (2026-08-13): drop retries entirely for now while
-# DeepSeek's reliability is this bad. A failing call fails immediately (no
-# second attempt eating another 100s) rather than trading a small chance of
-# recovering a transient blip for a real chance of doubling the wait on a
-# call that was never coming back. Every caller already has a graceful
-# "LLM unavailable" fallback (empty/deterministic plan), so a fast failure
-# here just means falling back to that sooner, not a worse outcome.
-_MAX_ATTEMPTS = 1
+# Was 3, then 2, then 1 for everything — user call (2026-08-13): drop
+# retries entirely while DeepSeek's reliability was this bad. That
+# conflated two different failure modes though (PR #17 review,
+# 2026-08-13): a hung/dead connection is already bounded by the hard
+# deadline above, so retrying it just doubles the wait on a call that was
+# never coming back — that's what _MAX_NETWORK_ATTEMPTS=1 (fast-fail)
+# still protects against, unchanged. But an HTTP error status (429/503/
+# 504 — the server responded, it's just overloaded) is a different,
+# genuinely transient thing that a cheap backoff retry can absorb; failing
+# it just as fast was throwing away exactly the recovery this mechanism
+# exists for (confirmed symptom: a Gemini 503 taking the whole vision/
+# authoring step down with it). Restored to 3 attempts, but scoped to
+# status-retryable failures only — every caller still has a graceful
+# fallback for the case both attempts genuinely fail, so this only helps.
+_MAX_NETWORK_ATTEMPTS = 1
+_MAX_STATUS_ATTEMPTS = 3
 _RETRY_BACKOFF_BASE_SECONDS = 1.5
 _RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 
@@ -99,22 +107,23 @@ def _post_with_retries(
     Returns the parsed JSON response body, or None if every attempt failed
     (already logged) or the failure was non-retryable.
     """
-    for attempt in range(1, _MAX_ATTEMPTS + 1):
+    max_attempts = max(_MAX_NETWORK_ATTEMPTS, _MAX_STATUS_ATTEMPTS)
+    for attempt in range(1, max_attempts + 1):
         try:
             resp = _post_bounded(url, headers, body, timeout)
         except (
             requests.ConnectionError, requests.Timeout, requests.exceptions.ChunkedEncodingError,
             concurrent.futures.TimeoutError,
         ) as e:
-            if attempt == _MAX_ATTEMPTS:
+            if attempt >= _MAX_NETWORK_ATTEMPTS:
                 logger.error(f"{label} call failed after {attempt} attempts (network): {e}")
                 return None
-            logger.warning(f"{label} call network error, retrying ({attempt}/{_MAX_ATTEMPTS}): {e}")
+            logger.warning(f"{label} call network error, retrying ({attempt}/{_MAX_NETWORK_ATTEMPTS}): {e}")
             time.sleep(_RETRY_BACKOFF_BASE_SECONDS * attempt)
             continue
 
-        if resp.status_code in _RETRYABLE_STATUS_CODES and attempt < _MAX_ATTEMPTS:
-            logger.warning(f"{label} call got HTTP {resp.status_code}, retrying ({attempt}/{_MAX_ATTEMPTS})")
+        if resp.status_code in _RETRYABLE_STATUS_CODES and attempt < _MAX_STATUS_ATTEMPTS:
+            logger.warning(f"{label} call got HTTP {resp.status_code}, retrying ({attempt}/{_MAX_STATUS_ATTEMPTS})")
             time.sleep(_RETRY_BACKOFF_BASE_SECONDS * attempt)
             continue
 
