@@ -3,8 +3,10 @@
 import { useRef, useState } from "react";
 import { generateContentAction } from "@/app/(app)/actions";
 import { ResultCard } from "@/components/ResultCard";
+import { ScenarioGallery } from "@/components/ScenarioGallery";
 import { TOOL_META, type GenerationKind } from "@/lib/generation-types";
 import type { Generation } from "@/lib/data";
+import type { Lang } from "@/lib/i18n";
 
 // Matches whatsapp_mvp/lang.py's detect_lang() exactly (was missing the
 // CJK Extension A range 㐀-䶿 until this was checked against the source file).
@@ -24,7 +26,17 @@ function historyToMessages(history: Generation[]): ChatMsg[] {
   ]);
 }
 
-export function Dashboard({ initialHistory }: { initialHistory: Generation[] }) {
+export function Dashboard({
+  initialHistory, role, uiLang,
+}: {
+  initialHistory: Generation[];
+  role: string; // profile.role — see lib/scenario-templates.ts for how this personalizes the gallery below
+  // Site display language (ui_lang cookie) — only the scenario gallery's own
+  // card labels/copy. Named uiLang, not lang, to avoid shadowing submit()'s
+  // own `lang` below (that one's per-message, auto-detected from the
+  // direction text's script — a different concept, deliberately unrelated).
+  uiLang: Lang;
+}) {
   const [messages, setMessages] = useState<ChatMsg[]>(() => historyToMessages(initialHistory));
   const [pendingKinds, setPendingKinds] = useState<Set<GenerationKind>>(new Set());
   const [toast, setToast] = useState<string | null>(null);
@@ -67,8 +79,14 @@ export function Dashboard({ initialHistory }: { initialHistory: Generation[] }) 
     });
   }
 
+  // Scenario cards call submit() with a no-op clearInput — there's no
+  // associated <input> to clear, they fire a fully pre-written direction
+  // straight away (matches the reference "Create Now" pattern).
+  const fireScenario = (kind: GenerationKind, direction: string) => submit(kind, direction, () => {});
+
   return (
     <div className="dash">
+      <ScenarioGallery role={role} lang={uiLang} pendingKinds={pendingKinds} onFire={fireScenario} />
       <ToolBar kind="video_script" pending={pendingKinds.has("video_script")} onSubmit={submit} primary />
       <ToolBar kind="shooting_script" pending={pendingKinds.has("shooting_script")} onSubmit={submit} />
       <ToolBar kind="content_idea" pending={pendingKinds.has("content_idea")} onSubmit={submit} />
