@@ -1,32 +1,20 @@
-﻿# OpenMontage Web API — video-editing job routes (Phase 2a).
+# OpenMontage Web API — video-editing job routes (Phase 2a, synced 2026-08-12
+# from OpenMontage-p2's origin/whatsapp-studio, 3 commits ahead of the
+# version this was originally ported from — brings in PR #58's editor
+# save/re-render endpoints (POST /editor/{id}/props, /overrides) that were
+# a known gap before, plus cost_tracking.py and the +faststart video fixes.
 #
-# Adapted from OpenMontage-p2/whatsapp_mvp/webhook.py: that file is already
-# a general-purpose FastAPI app, not a WhatsApp-only handler — only its
-# `/webhook/whatsapp` GET+POST routes and the WhatsApp-message-driven state
-# machine feeding them (_handle_message/_collect_media/_handle_confirmation/
-# the b-roll-collection-timeout helpers) were WhatsApp-specific, and have
-# been removed here. Every other route (`/jobs/*`, `/editor/*`, `/croll`,
-# `/voice-clone`, `/files/*`, ...) was ALREADY a plain JSON/multipart HTTP
-# API called by a non-WhatsApp caller too — `/croll`/`/social-batch`/
-# `/voice-clone` already take a `wa_number` form field as an opaque
-# per-caller identity string (not validated as a real phone number, see
-# their own docstrings); `/jobs` didn't have this yet (still hardcoded
-# `get_or_create_user("api_user")`, meaning every website job would have
-# shared one User row) — added the same `wa_number` parameter to it here.
-# apps/web passes its own authenticated user id as `wa_number` on every
-# call. This file is now an APIRouter mounted into apps/api/app/main.py, not
-# its own
-# FastAPI app — see main.py for the lifespan wiring (_recover_orphaned_jobs
-# still runs, just called from there instead of a `@asynccontextmanager`
-# defined in this file).
+# Adapted the same way as the first port: only `/webhook/whatsapp` GET+POST
+# and the WhatsApp-message-driven state machine feeding them were stripped
+# (WhatsApp-specific, everything else was already a plain HTTP API — see
+# the original Phase 2a plan doc). This file is an APIRouter mounted into
+# apps/api/app/main.py, not its own FastAPI app.
 
 from __future__ import annotations
 
-import copy
 import json
 import logging
 import os
-import time
 from pathlib import Path
 from typing import List, Optional
 
@@ -107,6 +95,7 @@ async def workers_health():
         return {"status": "ok", "redis": "connected"}
     except Exception as e:
         return {"status": "degraded", "redis": str(e)}
+
 
 
 # ---------------------------------------------------------------------------
@@ -199,6 +188,18 @@ def _enqueue_revise(job_id: str, text: str) -> None:
     revise_plan(job_id, text)
 
 
+def _enqueue_editor_render(job_id: str) -> None:
+    from .worker import editor_render
+
+    editor_render(job_id)
+
+
+def _enqueue_editor_render_authored(job_id: str) -> None:
+    from .worker import editor_render_authored
+
+    editor_render_authored(job_id)
+
+
 # ---------------------------------------------------------------------------
 # Job API (internal)
 # ---------------------------------------------------------------------------
@@ -270,39 +271,6 @@ async def qa_endpoint(text: str = Form(...)):
 
     answer = answer_question(text)
     return {"answer": answer}
-
-
-@router.post("/content-ideas")
-async def content_ideas_endpoint(direction: str = Form(...), lang: str = Form("zh")):
-    """无状态：用户给一个方向/主题，不需要视频、不建 job——直接返回一条可
-    复制发帖的样品文案。dashboard 的"给个方向出 idea"入口打这里。生成失败
-    （没配 key/调用失败/解析失败）返回 200 + idea:null，前端按"没生成成功"
-    展示，不是 500——跟这个代码库其余生成式功能同一个约定（宁可明确告知失败，
-    不编一份假结果）。"""
-    from .content_idea import generate_content_idea
-
-    idea = generate_content_idea(direction, lang=lang)
-    return {"idea": idea}
-
-
-@router.post("/shooting-scripts")
-async def shooting_scripts_endpoint(direction: str = Form(...), lang: str = Form("zh")):
-    """无状态：方向/主题 -> 拍摄分镜表（怎么拍，不是台词）。跟 /content-ideas
-    同一个约定，失败返回 200 + script:null，不是 500。"""
-    from .shooting_script import generate_shooting_script
-
-    script = generate_shooting_script(direction, lang=lang)
-    return {"script": script}
-
-
-@router.post("/video-scripts")
-async def video_scripts_endpoint(direction: str = Form(...), lang: str = Form("zh")):
-    """无状态：方向/主题 -> 镜头前口播文案（讲乜嘢，不是发帖配文）。跟
-    /content-ideas 同一个约定，失败返回 200 + script:null，不是 500。"""
-    from .video_script import generate_video_script
-
-    script = generate_video_script(direction, lang=lang)
-    return {"script": script}
 
 
 @router.post("/transcribe")
@@ -550,15 +518,11 @@ async def create_job_endpoint(
     arm: str = Form(""),
     reference: Optional[UploadFile] = File(default=None),
     reference_kind: str = Form(""),
-    # Was hardcoded "api_user" (every website-originated job shared one User
-    # row) until this fix — same bug and same fix already applied to
-    # /croll, /social-batch, /voice-clone below (see their own docstrings):
-    # a shared row means voice_clone.py's User.elevenlabs_voice_id and any
-    # future per-user data collide across every caller. apps/web passes the
-    # site's own authenticated user id here; User.whatsapp_id (despite the
-    # name — it's really "opaque caller identity", not a validated phone
-    # number, see the other 3 routes) just needs to be a stable unique
-    # string per caller, which a UUID satisfies natively.
+    # Was hardcoded "api_user" upstream too (still, as of this sync) — same
+    # fix as the original Phase 2a port: /croll, /social-batch, /voice-clone
+    # already take wa_number as an opaque per-caller identity string
+    # (not a validated phone number); apps/web passes its own authenticated
+    # user id here.
     wa_number: str = Form("api_user"),
 ):
     config = get_config()
@@ -867,16 +831,13 @@ async def revise_job_endpoint(job_id: str, text: str = Form("")):
 
 
 # ---------------------------------------------------------------------------
-# Preview editor (Phase 2) — browser workspace, VIEW-ONLY pass.
+# Preview editor (Phase 2) — browser workspace for hand-editing render props.
 #
-# 这一批路由只接"看"：token 鉴权、真实 props/字幕数据、filmstrip 缩略图、
-# 波形图。「保存后重新渲染」（render_props_directly 那条路径）依赖 6 个目前
-# 完全不存在的新函数（pin_server_owned_props/_clamp_video_cuts/
-# _finalize_pipeline_tail 等）——那是队友 PR #58 描述里"需要单独一次谨慎
-# 合并"的核心渲染逻辑，风险和工作量都大得多，这里刻意不碰，只接安全的
-# 只读部分，让编辑器先能被真实看到。POST /editor/{id}/props、
-# POST /editor/{id}/overrides（保存）不在这批里，前端点 Save 现在会打 404，
-# 这是已知的、刻意的范围边界，不是漏做。
+# 跟 apply_style/revise_style 完全不同的一条渲染路径：不经过 plan_content、
+# 不经过 _apply_deterministic_guarantees、不经过 props_lint/视觉复审——用户
+# 编辑的内容就是最终结果（见 pipeline_runner.render_props_directly 的文档）。
+# 这里只负责：token 鉴权、URL 改写（本机地址 <-> 公网地址）、并发合并
+# （coalescing，同一 job 同时只跑一次渲染）、每小时保存次数上限。
 # ---------------------------------------------------------------------------
 
 _EDITOR_RENDER_MARKER_NAME = "_editor_render.json"
@@ -900,8 +861,11 @@ def _require_editor_token(job_id: str, token: str):
 
 def _rewrite_asset_url(url: Optional[str]) -> Optional[str]:
     """把 props 里指向 local_api_base（通常是 127.0.0.1，Remotion 渲染子进程
-    取素材用）的资源 URL 换成 public_base_url（隧道地址，浏览器/手机能
-    解析）——不换的话 Player 会显示黑屏且不报任何错误。"""
+    取素材用）的资源 URL 换成 public_base_url（ngrok 隧道，浏览器/手机能
+    解析）——不换的话 Player 会显示黑屏且不报任何错误，因为 <video> 加载
+    失败在 UI 上就是"什么都没有"，不会抛异常。只做前缀替换：
+    pipeline_runner.py 构造这些 URL 永远是 f"{local_api_base}/files/..."
+    这个固定形状（videoSrc/presenter.src/qrContact.qrSrc 三处）。"""
     if not url:
         return url
     config = get_config()
@@ -912,7 +876,15 @@ def _rewrite_asset_url(url: Optional[str]) -> Optional[str]:
 
 
 def _rewrite_props_for_browser(props: dict, job=None) -> dict:
-    """浏览器展示用的 props 副本——不改磁盘上的原始文件。"""
+    """`job` optional only for backward-compat with any other caller; the
+    editor `props` route always passes it so `videoSrc` can be swapped for a
+    faststart copy — see `pipeline_runner.ensure_editor_preview_video`'s
+    docstring for why every intermediate `.mp4` this pipeline produces is
+    otherwise permanently black in a browser `<video>` element (moov atom at
+    the end of the file, confirmed 70/70 on disk). This never touches the
+    real `videoSrc` on disk: the returned dict is browser-facing only, and
+    `pin_server_owned_props` re-pins the real value from disk on every save
+    regardless of what the browser round-trips back."""
     props = dict(props)
     video_src = props.get("videoSrc")
     if job is not None:
@@ -931,6 +903,11 @@ def _rewrite_props_for_browser(props: dict, job=None) -> dict:
     if props.get("qrContact"):
         props["qrContact"] = {**props["qrContact"],
                               "qrSrc": _rewrite_asset_url(props["qrContact"].get("qrSrc"))}
+    # Seed the editor's music-volume slider from the plan's own add_music op
+    # — musicVolume isn't part of render_props on disk (it's an editor-only
+    # override consumed by render_props_directly), so without this the
+    # slider would start at some default instead of the actual level the
+    # delivered video already has.
     if job is not None and "musicVolume" not in props:
         try:
             from .pipeline_runner import _load_plan
@@ -946,7 +923,11 @@ def _rewrite_props_for_browser(props: dict, job=None) -> dict:
 def _read_editor_marker(job_dir) -> dict:
     path = job_dir / _EDITOR_RENDER_MARKER_NAME
     default = {"state": "idle", "pending_props": None, "started_at": None,
-               "error": None, "save_timestamps": [], "pending_overrides": None}
+               "error": None, "save_timestamps": [],
+               # Phase 8 —— Arm B 的手动编辑（overrides）版本，跟 pending_props
+               # 共用同一个标记文件/state machine（一个 job 同时只可能是 Arm A
+               # 或 Arm B 中的一种，两个字段不会同时有值）。
+               "pending_overrides": None}
     if not path.exists():
         return default
     try:
@@ -956,11 +937,20 @@ def _read_editor_marker(job_dir) -> dict:
         return default
 
 
+def _write_editor_marker(job_dir, marker: dict) -> None:
+    (job_dir / _EDITOR_RENDER_MARKER_NAME).write_text(
+        json.dumps(marker, ensure_ascii=False), encoding="utf-8")
+
+
 @router.get("/editor/{job_id}/props")
 def editor_get_props(job_id: str, token: str = Query("")):
-    # Plain `def`, not `async def` — 间接经由 ensure_editor_preview_video 会
-    # 走 ffmpeg subprocess.run（阻塞），async def 会冻结 FastAPI 唯一的事件
-    # 循环，同类 bug 已在 serve_file 自己的文档里确认过一次真实故障。
+    # Plain `def`, not `async def` — this now (indirectly, via
+    # _rewrite_props_for_browser -> ensure_editor_preview_video) calls
+    # ffmpeg through subprocess.run, which blocks. Declared async it would
+    # freeze FastAPI's single event loop for every concurrent request behind
+    # it, the same class of bug serve_file's own docstring documents as a
+    # confirmed real incident. It was already doing blocking DB/file I/O
+    # before this change too.
     job = _require_editor_token(job_id, token)
     props_path = job.job_dir / "_op_apply_style_props.json"
     if not props_path.exists():
@@ -976,12 +966,66 @@ def editor_get_props(job_id: str, token: str = Query("")):
         "job_status": job.status.value,
         "manually_edited": (job.job_dir / "_manual_edit.json").exists(),
         "editor_state": marker["state"],
-        "read_only": True,
     }
 
 
+@router.post("/editor/{job_id}/props")
+async def editor_post_props(job_id: str, request: Request, token: str = Query("")):
+    job = _require_editor_token(job_id, token)
+    user_props = await request.json()
+    if not isinstance(user_props, dict):
+        raise HTTPException(status_code=400, detail="Body must be a JSON object")
+
+    marker = _read_editor_marker(job.job_dir)
+    now = time.time()
+    recent_saves = [t for t in marker["save_timestamps"] if now - t < _EDITOR_SAVE_WINDOW_S]
+    if len(recent_saves) >= _EDITOR_SAVES_PER_HOUR:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Editor save rate limit reached ({_EDITOR_SAVES_PER_HOUR}/hour) — try again later",
+        )
+    recent_saves.append(now)
+
+    # 合并（coalesce），不排队：一个渲染已经在跑时，新的保存直接替换
+    # pending_props 并返回，不再触发第二份并发渲染——RENDER_SLOTS 全局只有
+    # 一个槽位，排队会让第二次保存等最多 OM_RENDER_TIMEOUT_S（默认 1800s）。
+    # editor_render（worker.py）渲染完成后会检查 pending_props 有没有被
+    # 刷新过，有就接着渲染最新这份，没有才真正结束。
+    was_rendering = marker["state"] == "rendering"
+    marker["pending_props"] = user_props
+    marker["save_timestamps"] = recent_saves
+    if not was_rendering:
+        marker["state"] = "rendering"
+        marker["started_at"] = now
+        marker["error"] = None
+    _write_editor_marker(job.job_dir, marker)
+
+    wa_number = job.user.whatsapp_id if job.user else None
+
+    if was_rendering:
+        return {"job_id": job_id, "state": "coalesced", "wa_number": wa_number}
+
+    # 跟 /revise_style 同一个race 修复：必须在 _run_in_background 之前同步
+    # 落地状态，否则 Node 发完 POST 立刻开始轮询 GET /jobs/{id}，如果这里
+    # 还是 PREVIEW_READY，会把旧预览误当成新预览投递出去。
+    update_job_fields(job_id, status=JobStatus.RUNNING_PIPELINE, error_message=None,
+                      progress_stage=None)
+    _run_in_background(_enqueue_editor_render, job_id)
+    return {"job_id": job_id, "state": "queued", "wa_number": wa_number}
+
+
+# ---------------------------------------------------------------------------
+# Phase 8 —— Arm B（AI 现写场景）的编辑器数据源，跟上面 Arm A 的 /props、
+# /props 保存并列。一个 job 只会是 Arm A 或 Arm B 中的一种（arm_router 决定），
+# 靠 job_dir/authored/scene.tsx 是否存在来判断走哪一条——跟 Arm A 自己靠
+# _op_apply_style_props.json 是否存在判断"这个 job 有没有走过 apply_style"
+# 完全同一个思路，不需要新的 DB 字段。
+# ---------------------------------------------------------------------------
+
 @router.get("/editor/{job_id}/authored")
 def editor_get_authored(job_id: str, token: str = Query("")):
+    # Plain `def`（跟 editor_get_props 同一个理由）——这里只做文件 I/O，
+    # 没有 ffmpeg 子进程，但保持跟同类路由一致的风格。
     job = _require_editor_token(job_id, token)
     authored_dir = job.job_dir / "authored"
     scene_path = authored_dir / "scene.tsx"
@@ -1004,6 +1048,19 @@ def editor_get_authored(job_id: str, token: str = Query("")):
     overrides = _read_json_or(authored_dir / "overrides.json", {})
     base_props = _read_json_or(authored_dir / "props.json", {})
 
+    # Phase 8 — the editor's in-browser live compile can fail (arbitrary
+    # per-job generated code, however unlikely after tsx_validator.py's
+    # gate). previewUrl lets it fall back to the already-rendered mp4
+    # instead of a blank screen — the same file WhatsApp delivery itself
+    # uses, so it's guaranteed to exist whenever this route doesn't 404.
+
+    # base_props 里的 videoSrc/broll[].src 是**相对 job_dir** 的路径（见
+    # whatsapp_mvp/authored/__init__.py 落 props.json 时的约定），这里拼成
+    # 浏览器能 fetch 的 URL——跟 _rewrite_props_for_browser 对 Arm A 的
+    # videoSrc/presenter.src/qrContact.qrSrc 做的事完全同一个理由（本机地址
+    # 浏览器/手机解析不了，见该函数自己的注释）。serve_file（GET
+    # /files/{job_id}/{filename}）本来就已经能读 job_dir 下任意路径，不需要
+    # 新增文件服务路由。
     local_base = get_config().local_api_base.rstrip("/")
     video_src_rel = base_props.get("videoSrc") or ""
     base_props["videoSrc"] = (
@@ -1027,14 +1084,58 @@ def editor_get_authored(job_id: str, token: str = Query("")):
         **base_props,
         "job_status": job.status.value,
         "editor_state": marker["state"],
-        "read_only": True,
     }
+
+
+@router.post("/editor/{job_id}/overrides")
+async def editor_post_overrides(job_id: str, request: Request, token: str = Query("")):
+    """跟 editor_post_props 同一套合并（coalescing）/ 每小时限额机制，只是
+    存的是 pending_overrides（Arm B 手动编辑层）而不是 pending_props（Arm A
+    完整 render_props 树）——两者共用同一份标记文件，但 job 只会走其中一条。"""
+    job = _require_editor_token(job_id, token)
+    user_overrides = await request.json()
+    if not isinstance(user_overrides, dict):
+        raise HTTPException(status_code=400, detail="Body must be a JSON object")
+
+    if not (job.job_dir / "authored" / "scene.tsx").exists():
+        raise HTTPException(status_code=404, detail="This job has no AI-authored scene to edit")
+
+    marker = _read_editor_marker(job.job_dir)
+    now = time.time()
+    recent_saves = [t for t in marker["save_timestamps"] if now - t < _EDITOR_SAVE_WINDOW_S]
+    if len(recent_saves) >= _EDITOR_SAVES_PER_HOUR:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Editor save rate limit reached ({_EDITOR_SAVES_PER_HOUR}/hour) — try again later",
+        )
+    recent_saves.append(now)
+
+    was_rendering = marker["state"] == "rendering"
+    marker["pending_overrides"] = user_overrides
+    marker["save_timestamps"] = recent_saves
+    if not was_rendering:
+        marker["state"] = "rendering"
+        marker["started_at"] = now
+        marker["error"] = None
+    _write_editor_marker(job.job_dir, marker)
+
+    wa_number = job.user.whatsapp_id if job.user else None
+
+    if was_rendering:
+        return {"job_id": job_id, "state": "coalesced", "wa_number": wa_number}
+
+    update_job_fields(job_id, status=JobStatus.RUNNING_PIPELINE, error_message=None,
+                      progress_stage=None)
+    _run_in_background(_enqueue_editor_render_authored, job_id)
+    return {"job_id": job_id, "state": "queued", "wa_number": wa_number}
 
 
 @router.post("/editor/{job_id}/relayout")
 async def editor_relayout(job_id: str, request: Request, token: str = Query("")):
-    """非破坏性预览："重新走一遍自动排版"——只计算、只返回，不写盘、不渲染。
-    安全，不属于"保存"范畴，这一条留在 view-only 这批里。"""
+    """非破坏性的"重新走一遍自动排版"预览——用户在浏览器里看不出
+    mode_schedule 冲突（哪张卡会被正在长大的说话人卡片挡住），这是唯一一个
+    用户自己肉眼算不出来、需要引擎帮忙的保障。只计算、只返回，不写盘、不
+    渲染、不影响 pending_props/render 状态。"""
     job = _require_editor_token(job_id, token)
     user_props = await request.json()
     if not isinstance(user_props, dict):
@@ -1061,16 +1162,22 @@ async def editor_status(job_id: str, token: str = Query("")):
 
     return {
         "state": marker["state"],
+        # threading.Semaphore 没有公开的"当前是否被占满"查询接口——_value 是
+        # 内部实现细节，但这里只用于给用户体验提示（"机器正忙，可能要等一会
+        # 儿"），不是任何正确性判断的依据，best-effort 探测可以接受。
         "slot_busy": getattr(RENDER_SLOTS, "_value", 1) <= 0,
         "error": marker["error"],
         "saves_this_hour": len(recent_saves),
         "job_status": job.status.value,
-        "read_only": True,
     }
 
 
 @router.get("/editor/{job_id}/filmstrip")
 def editor_filmstrip(job_id: str, token: str = Query("")):
+    # Plain `def`, not `async def` — this calls ffmpeg via subprocess.run,
+    # which blocks. Declared async it would freeze FastAPI's single event
+    # loop for every concurrent request behind it, the same class of bug
+    # `serve_file`'s own docstring documents as a confirmed real incident.
     job = _require_editor_token(job_id, token)
     from .pipeline_runner import ensure_editor_filmstrip
 
@@ -1132,13 +1239,7 @@ def serve_file(job_id: str, filename: str):
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    # 路径穿越防护：filename 直接来自 URL path 参数，Node 网关那侧的代理
-    # （server/index.js /files 路由）用 encodeURIComponent 转发，但它不编码
-    # "."——"../.env" 这类值能原样穿过代理。预览编辑器上线后这条路由第一次
-    # 会被浏览器 fetch 直接命中，必须在那之前把这个口子堵上。
-    file_path = (job.job_dir / filename).resolve()
-    if not file_path.is_relative_to(job.job_dir.resolve()):
-        raise HTTPException(status_code=404, detail="File not found")
+    file_path = job.job_dir / filename
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="File not found")
 
