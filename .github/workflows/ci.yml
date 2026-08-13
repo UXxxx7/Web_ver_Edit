@@ -1,0 +1,52 @@
+name: CI
+
+# 每个 PR 和推到 main 时自动跑。任一 job 失败 = PR 变红 = 合不进去。
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# 同一分支上新的 push 取消旧的运行，省 CI 时间。
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    name: apps/web — build + lint + typecheck
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      # 注意：若 package-lock.json 里的源锁在 registry.npmmirror.com 导致
+      # GitHub runner 拉不到，把 lock 用官方源重生成一次（见 CONTRIBUTING.md）。
+      - name: Install
+        run: npm ci --no-audit --no-fund
+      - name: Lint (eslint)
+        run: npm run lint
+      - name: Build (Next.js — 含 TypeScript 类型检查)
+        run: npm run build
+
+  api:
+    name: apps/api — import smoke (服务能否起来)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install
+        run: pip install -r requirements.txt
+      # 导入 app.main 会连带导入 webhook/pipeline_runner/authored 等全部模块，
+      # 任何 import 错误、语法错误、模块级崩溃都会在这里暴露（不花 LLM/渲染的钱）。
+      - name: Import smoke
+        run: python -c "import app.main; print('app.main imported OK — all routes/modules resolve')"
