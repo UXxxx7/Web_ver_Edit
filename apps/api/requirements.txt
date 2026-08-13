@@ -16,11 +16,9 @@ Pillow>=10.0               # qa_stills.py / reference_analyzer.py
 opencv-python>=4.9,<5      # tools/analysis/face_tracker.py — Haar-cascade; don't bump past <5, v5 drops cv2.CascadeClassifier
 numpy>=1.24                # face_tracker.py
 faster-whisper>=1.2.1
-# forced_alignment.py — wav2vec2 CTC realignment of faster-whisper's word
-# timestamps (those are attention-interpolated and drift badly; a real case had
-# a 0.5s word reported as 1.56s, which throws off caption/karaoke sync). The
-# module degrades gracefully when this is absent, so a missing install is
-# SILENT — you get worse timings with no error. It was an optional extra
-# upstream (OpenMontage-p2 pyproject's `align`); pinned here as a hard dep so a
-# deployed box can't quietly ship the degraded path. Heavy (~pulls torch).
-whisperx>=3.8.6
+# forced_alignment.py's wav2vec2 CTC realignment (whisperx) moved to
+# requirements-optional.txt (PR #17 review, 2026-08-13): it pulls in torch
+# (~2GB+) for a refinement step that already degrades gracefully when
+# absent — install it explicitly (`pip install -r
+# requirements-optional.txt`) if you want it, or set
+# DISABLE_FORCED_ALIGNMENT=true to skip it even when it IS installed.

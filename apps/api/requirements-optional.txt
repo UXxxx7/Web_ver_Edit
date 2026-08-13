@@ -1,0 +1,14 @@
+# Optional extras — not installed by default (`pip install -r requirements.txt`
+# alone skips these). Install explicitly with:
+#   pip install -r requirements-optional.txt
+#
+# forced_alignment.py — wav2vec2 CTC realignment of faster-whisper's word
+# timestamps (those are attention-interpolated and drift badly; a real case
+# had a 0.5s word reported as 1.56s, which throws off caption/karaoke sync).
+# Was a hard dependency in requirements.txt; moved here (PR #17 review,
+# 2026-08-13) because it pulls in torch (~2GB+) for a step the module already
+# degrades gracefully without — see forced_alignment.py's own doc comment.
+# A missing install here means slightly worse (but not broken) caption sync,
+# never an error. Set DISABLE_FORCED_ALIGNMENT=true to skip it even when
+# installed.
+whisperx>=3.8.6
