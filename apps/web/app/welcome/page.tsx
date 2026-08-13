@@ -1,9 +1,32 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { buttonVariants } from "@/components/ui/button";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { getLang } from "@/lib/i18n.server";
 import { cn } from "@/lib/utils";
 import type { Lang } from "@/lib/i18n";
+
+// generateMetadata (not a static `metadata` export) because the title/
+// description need to follow the same ui_lang cookie the page body reads —
+// a static export can't see cookies(). OG image reuses the real showcase
+// photo (not a mockup) rather than a generated 1200x630 asset — a
+// pragmatic first pass, portrait crop isn't ideal for OG but beats no
+// preview image at all when this link is shared.
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = await getLang();
+  const title =
+    lang === "zh" ? "OpenMontage Studio — 一張相，一條片" : "OpenMontage Studio — One photo. One video.";
+  const description =
+    lang === "zh"
+      ? "上載一張相，AI 幫你搞掂劇本、配音、字幕，一鍵出招聘影片。"
+      : "Upload one photo — AI writes the script, dubs the voiceover, burns in captions, and hands you a finished recruitment video.";
+  return {
+    title,
+    description,
+    openGraph: { title, description, images: ["/showcase/sample-input-photo.png"], type: "website" },
+    twitter: { card: "summary_large_image", title, description, images: ["/showcase/sample-input-photo.png"] },
+  };
+}
 
 const STEP_ICONS = [
   <path key="1" d="M4 6.5A1.5 1.5 0 0 1 5.5 5h13A1.5 1.5 0 0 1 20 6.5v11a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5v-11Z M4 15l4.5-4.5a1.5 1.5 0 0 1 2.1 0L14 14M14 14l1.4-1.4a1.5 1.5 0 0 1 2.1 0L20 15" />,
@@ -31,6 +54,8 @@ const DICT = {
       { title: "一鍵出片", caption: "出片，隨時可以出post" },
     ],
     footer: "OpenMontage Studio — 為招聘打造嘅 AI 影片工具。",
+    privacy: "私隱政策",
+    terms: "服務條款",
   },
   en: {
     signIn: "Sign in",
@@ -49,6 +74,8 @@ const DICT = {
       { title: "Ready to post", caption: "One click, ready to publish" },
     ],
     footer: "OpenMontage Studio — an AI video tool built for recruiting.",
+    privacy: "Privacy Policy",
+    terms: "Terms of Service",
   },
 } satisfies Record<Lang, unknown>;
 
@@ -175,7 +202,12 @@ export default async function WelcomePage() {
       </main>
 
       <footer className="border-t border-border px-4 py-4 text-center text-[12.5px] text-muted-foreground sm:px-10">
-        {t.footer}
+        <p>{t.footer}</p>
+        <p className="mt-1.5 flex items-center justify-center gap-3">
+          <Link href="/privacy" className="hover:text-foreground hover:underline">{t.privacy}</Link>
+          <span aria-hidden>·</span>
+          <Link href="/terms" className="hover:text-foreground hover:underline">{t.terms}</Link>
+        </p>
       </footer>
     </div>
   );

@@ -18,8 +18,9 @@ import { COOKIE_NAME, verifySessionToken } from "./lib/session";
 const AUTH_PATHS = ["/login", "/signup"];
 // "/showcase" is the static image/video assets the /welcome page embeds —
 // needs to be fetchable by a logged-out visitor's <img>/<video> tags too,
-// same reasoning as /welcome itself.
-const OPEN_PATHS = ["/welcome", "/showcase"];
+// same reasoning as /welcome itself. "/privacy" and "/terms" are the legal
+// pages — need to be readable before signing up, not just after.
+const OPEN_PATHS = ["/welcome", "/showcase", "/privacy", "/terms"];
 const PUBLIC_PATHS = [...AUTH_PATHS, ...OPEN_PATHS];
 
 function isSupabaseConfigured(): boolean {
