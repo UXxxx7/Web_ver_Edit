@@ -81,7 +81,7 @@ export const IconClusterCard: React.FC<IconClusterCardProps> = ({
     <div style={{ position: "absolute", left: x, top: y, width, opacity: exitFade }}>
       {title ? (
         <div style={{
-          fontFamily: headingFont, fontSize: 16, fontWeight: 600, letterSpacing: 3,
+          fontFamily: headingFont, fontSize: 18, fontWeight: 600, letterSpacing: 3,
           color: palette.inkSoft, textTransform: "uppercase", marginBottom: 16,
           opacity: cardEntry,
         }}>
@@ -112,7 +112,7 @@ export const IconClusterCard: React.FC<IconClusterCardProps> = ({
                 <ClusterIcon name={item.icon} color={palette.accent} />
               </div>
               <div style={{ display: "flex", flexDirection: "column" }}>
-                <span style={{ fontFamily: headingFont, fontSize: 18, fontWeight: 700, color: palette.ink }}>
+                <span style={{ fontFamily: headingFont, fontSize: 22, fontWeight: 700, color: palette.ink }}>
                   {item.label}
                 </span>
                 {item.labelEn ? (

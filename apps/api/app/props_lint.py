@@ -102,6 +102,22 @@ def _card_rect_at(scenes: list[dict], frame: float) -> tuple[float, float, float
     )
 
 
+def _chrome_at(scenes: list[dict], frame: float) -> str:
+    """跟 SpeakerCard.tsx 的 chromeAt() 同一套语义（离散、不插值——见那边的
+    注释）：取"帧号 <= frame 的最后一条"的 chrome 值，缺省 "card"。chrome=
+    "none" 时 SpeakerCard 是全出血视频背景，此时内容压在它上面是设计意图本
+    身，不是 bug——element_over_card 检查必须在这种状态下整体跳过，否则
+    Dominant/Workflow 默认全出血之后，*任何*内容都会被判成"跟卡片重叠"，
+    自纠正循环会对着一个不可能满足的约束反复重规划。"""
+    if not scenes:
+        return "card"
+    active = scenes[0].get("chrome", "card")
+    for s in scenes:
+        if s["frame"] <= frame:
+            active = s.get("chrome", "card")
+    return active
+
+
 def _opacity_at(keyframes: list[dict], frame: float) -> float:
     if not keyframes:
         return 1.0
@@ -300,7 +316,7 @@ def lint_props(props: dict) -> list[dict]:
             f = e["mount"]
             while f < e["end"]:
                 if f >= 0:
-                    if _opacity_at(opacity_kf, f) >= 0.05:
+                    if _opacity_at(opacity_kf, f) >= 0.05 and _chrome_at(scenes, f) != "none":
                         card_rect = _card_rect_at(scenes, f)
                         if _rects_intersect(card_rect, (e["x"], e["y"], e["w"], e["h"])):
                             findings.append({

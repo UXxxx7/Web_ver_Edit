@@ -16,3 +16,11 @@ Pillow>=10.0               # qa_stills.py / reference_analyzer.py
 opencv-python>=4.9,<5      # tools/analysis/face_tracker.py — Haar-cascade; don't bump past <5, v5 drops cv2.CascadeClassifier
 numpy>=1.24                # face_tracker.py
 faster-whisper>=1.2.1
+# forced_alignment.py — wav2vec2 CTC realignment of faster-whisper's word
+# timestamps (those are attention-interpolated and drift badly; a real case had
+# a 0.5s word reported as 1.56s, which throws off caption/karaoke sync). The
+# module degrades gracefully when this is absent, so a missing install is
+# SILENT — you get worse timings with no error. It was an optional extra
+# upstream (OpenMontage-p2 pyproject's `align`); pinned here as a hard dep so a
+# deployed box can't quietly ship the degraded path. Heavy (~pulls torch).
+whisperx>=3.8.6

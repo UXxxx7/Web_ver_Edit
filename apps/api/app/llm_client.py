@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import concurrent.futures
 import logging
+import threading
 import time
 from typing import Optional
 
@@ -20,6 +21,32 @@ from .config import get_config
 
 logger = logging.getLogger(__name__)
 
+# Real production failure (2026-08-13, job_00bc3dbd45a7): Arm B's scene_author
+# and qa_stills' vision QA both call Gemini through this module, independently,
+# with no coordination — fine for one job at a time, but two jobs running
+# concurrently (each doing its own scene-authoring + vision-QA passes) was
+# enough parallel traffic to the same Gemini key to trip its rate limit (429
+# on every call in the burst, scene_author exhausting its 3 retries and Arm B
+# falling through to Arm A with nothing left to render). Retrying harder
+# doesn't help when the whole burst is over quota — spacing calls to this one
+# host out is the actual fix. Scoped to Gemini specifically (URL match) so
+# DeepSeek/OpenRouter calls, which aren't quota-constrained, stay unthrottled.
+_GEMINI_HOST = "generativelanguage.googleapis.com"
+_GEMINI_MIN_INTERVAL_S = 2.5
+_gemini_throttle_lock = threading.Lock()
+_gemini_last_call_ts = 0.0
+
+
+def _throttle_if_gemini(url: str) -> None:
+    global _gemini_last_call_ts
+    if _GEMINI_HOST not in url:
+        return
+    with _gemini_throttle_lock:
+        wait = _gemini_last_call_ts + _GEMINI_MIN_INTERVAL_S - time.monotonic()
+        if wait > 0:
+            time.sleep(wait)
+        _gemini_last_call_ts = time.monotonic()
+
 # requests' own `timeout=` only bounds a single socket read, not the total
 # call duration — if the server dribbles bytes slowly enough that no single
 # read ever stalls past `timeout`, the countdown keeps getting reset and the
@@ -28,7 +55,17 @@ logger = logging.getLogger(__name__)
 # giving up on waiting for it once `_HARD_CALL_DEADLINE_S` elapses — this
 # does NOT cancel the underlying request (Python threads can't be killed),
 # it just stops the caller from blocking on it.
-_HARD_CALL_DEADLINE_S = 75
+# History: was 75, raised to 150 on 2026-08-12 after confirming a direct
+# `GET /v1/models` ping succeeded in ~2s while actual chat/completions calls
+# were timing out — "slow but alive" was being treated the same as "down".
+# That fix backfired for the opposite case: when a call really IS dead, 150s
+# x _MAX_ATTEMPTS retries means a single failed call site can burn 7.5+
+# minutes before giving up, which is most of a user's entire 10-15 min patience
+# budget for one job (confirmed same night: a job sat past 20+ minutes with the
+# server process at 0% CPU — genuinely blocked on a dead network call, not
+# "slow"). 100s is the compromise: still ~1.7x the original, enough room for
+# a real-but-slow response, without making a truly dead call this expensive.
+_HARD_CALL_DEADLINE_S = 100
 _call_executor = concurrent.futures.ThreadPoolExecutor(max_workers=4, thread_name_prefix="llm-http")
 
 _session = requests.Session()
@@ -37,11 +74,27 @@ _session = requests.Session()
 def _post_bounded(
     url: str, headers: dict, body: dict, timeout: int, hard_deadline_s: Optional[float] = None
 ) -> requests.Response:
+    _throttle_if_gemini(url)
     future = _call_executor.submit(_session.post, url, headers=headers, json=body, timeout=timeout)
     return future.result(timeout=hard_deadline_s if hard_deadline_s is not None else _HARD_CALL_DEADLINE_S)
 
 
-_MAX_ATTEMPTS = 3
+# Was 3, then 2, then 1 for everything — user call (2026-08-13): drop
+# retries entirely while DeepSeek's reliability was this bad. That
+# conflated two different failure modes though (PR #17 review,
+# 2026-08-13): a hung/dead connection is already bounded by the hard
+# deadline above, so retrying it just doubles the wait on a call that was
+# never coming back — that's what _MAX_NETWORK_ATTEMPTS=1 (fast-fail)
+# still protects against, unchanged. But an HTTP error status (429/503/
+# 504 — the server responded, it's just overloaded) is a different,
+# genuinely transient thing that a cheap backoff retry can absorb; failing
+# it just as fast was throwing away exactly the recovery this mechanism
+# exists for (confirmed symptom: a Gemini 503 taking the whole vision/
+# authoring step down with it). Restored to 3 attempts, but scoped to
+# status-retryable failures only — every caller still has a graceful
+# fallback for the case both attempts genuinely fail, so this only helps.
+_MAX_NETWORK_ATTEMPTS = 1
+_MAX_STATUS_ATTEMPTS = 3
 _RETRY_BACKOFF_BASE_SECONDS = 1.5
 _RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 
@@ -54,22 +107,23 @@ def _post_with_retries(
     Returns the parsed JSON response body, or None if every attempt failed
     (already logged) or the failure was non-retryable.
     """
-    for attempt in range(1, _MAX_ATTEMPTS + 1):
+    max_attempts = max(_MAX_NETWORK_ATTEMPTS, _MAX_STATUS_ATTEMPTS)
+    for attempt in range(1, max_attempts + 1):
         try:
             resp = _post_bounded(url, headers, body, timeout)
         except (
             requests.ConnectionError, requests.Timeout, requests.exceptions.ChunkedEncodingError,
             concurrent.futures.TimeoutError,
         ) as e:
-            if attempt == _MAX_ATTEMPTS:
+            if attempt >= _MAX_NETWORK_ATTEMPTS:
                 logger.error(f"{label} call failed after {attempt} attempts (network): {e}")
                 return None
-            logger.warning(f"{label} call network error, retrying ({attempt}/{_MAX_ATTEMPTS}): {e}")
+            logger.warning(f"{label} call network error, retrying ({attempt}/{_MAX_NETWORK_ATTEMPTS}): {e}")
             time.sleep(_RETRY_BACKOFF_BASE_SECONDS * attempt)
             continue
 
-        if resp.status_code in _RETRYABLE_STATUS_CODES and attempt < _MAX_ATTEMPTS:
-            logger.warning(f"{label} call got HTTP {resp.status_code}, retrying ({attempt}/{_MAX_ATTEMPTS})")
+        if resp.status_code in _RETRYABLE_STATUS_CODES and attempt < _MAX_STATUS_ATTEMPTS:
+            logger.warning(f"{label} call got HTTP {resp.status_code}, retrying ({attempt}/{_MAX_STATUS_ATTEMPTS})")
             time.sleep(_RETRY_BACKOFF_BASE_SECONDS * attempt)
             continue
 
@@ -111,7 +165,7 @@ def call_llm_chat(system_prompt: str, user_message: str, *, temperature: float =
                 "system": system_prompt,
                 "messages": [{"role": "user", "content": user_message}],
             },
-            timeout=60,
+            timeout=130,  # was 60 — see _HARD_CALL_DEADLINE_S comment (2026-08-12)
         )
         if data is None:
             return None
@@ -158,7 +212,7 @@ def call_llm_chat(system_prompt: str, user_message: str, *, temperature: float =
         endpoint,
         headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
         body=body,
-        timeout=60,
+        timeout=130,  # was 60 — see _HARD_CALL_DEADLINE_S comment (2026-08-12)
     )
     if data is None:
         return None
@@ -209,7 +263,13 @@ def call_vision_chat(text_prompt: str, image_paths: list, timeout: int = 90):
                  "Content-Type": "application/json"},
                 {"model": config.vision_llm_model,
                  "messages": [{"role": "user", "content": content}],
-                 "temperature": 0.2},
+                 "temperature": 0.2,
+                 # Some providers (OpenRouter's gemini-3.5-flash route, seen
+                 # 2026-08-13) default max_tokens to the model's full ceiling
+                 # (65536) when omitted, which 402s on a low account balance
+                 # long before the model would ever actually need that many
+                 # tokens for a QA-review/description response — cap it.
+                 "max_tokens": 3000},
                 timeout,
             )
             resp.raise_for_status()

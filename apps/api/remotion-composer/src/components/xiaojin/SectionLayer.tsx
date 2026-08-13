@@ -25,7 +25,7 @@
  */
 import { interpolate, useCurrentFrame } from "remotion";
 import { SECTION_ICONS } from "./SectionIcons";
-import { APPLE, ColorMode, PALETTES } from "./theme";
+import { APPLE, ColorMode, H, PALETTES } from "./theme";
 import { TimelineNode, TimelineSection as TimelineSectionGraphic } from "./TimelineSection";
 
 export interface Section {
@@ -111,7 +111,7 @@ export const SectionLayer: React.FC<{
                 ) : null}
                 {s.title ? (
                   <span style={{
-                    fontFamily: headingFont, fontSize: 50, fontWeight: 800,
+                    fontFamily: headingFont, fontSize: 58, fontWeight: 800,
                     color: titleColor, lineHeight: 1,
                   }}>
                     {/* codex Animation Vocabulary: section header text uses a
@@ -176,6 +176,33 @@ export const SectionLayer: React.FC<{
                     <Icon localFrame={local} color={accent} />
                   </div>
                 ) : null}
+              </div>
+            )}
+
+            {/* Bottom ambient fill — icon zone above only occupies y=500-1000,
+                and any data card the takeover carries is a small, content-
+                sized element (not full-height), so a lone icon+one-card
+                takeover left ~500-600px of flatly empty canvas below it
+                (the exact "large blank canvas area" vision-QA kept flagging,
+                job_69a64ea7de7f 2026-08-13). Purely decorative, positioned
+                well clear of the y=500-1000 icon zone and the ~y=1040 card
+                zone, so it can't visually collide with either — just softens
+                the dead space beneath whatever's actually there. Icon-only
+                takeovers only (TimelineSectionGraphic fills its own space). */}
+            {!s.timeline && (
+              <div
+                style={{
+                  position: "absolute", left: 0, top: 1360, width: "100%", height: H - 1360,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  opacity: enter,
+                }}
+              >
+                <div
+                  style={{
+                    width: 900, height: 900, borderRadius: "50%",
+                    background: `radial-gradient(circle, ${accent}14 0%, ${accent}00 70%)`,
+                  }}
+                />
               </div>
             )}
           </div>

@@ -19,6 +19,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import threading
 from typing import Any, Optional
 
@@ -56,6 +57,10 @@ def realign_word_timestamps(
     （whisperx 叫 "score"），下游 _flag_unaccounted_audio 等代码不用区分
     数据来源。
     """
+    if os.getenv("DISABLE_FORCED_ALIGNMENT", "").lower() == "true":
+        logger.info("forced_alignment: DISABLE_FORCED_ALIGNMENT=true，跳过强制对齐，沿用原始词级时间戳")
+        return None
+
     try:
         import whisperx
     except ImportError:

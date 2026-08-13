@@ -41,6 +41,7 @@ def process_incoming_message(job_id: str) -> None:
     try:
         # ── 步骤1: 下载视频 ──
         if not job.input_video_path and job.whatsapp_media_id:
+            update_job_fields(job_id, current_stage="Downloading your video")
             _download_media(job, wa)
             _download_broll_assets(job, wa)  # b-roll 资产（有就下，无则 no-op）
             job = get_job(job_id)  # 重新加载，获取最新状态
@@ -48,7 +49,11 @@ def process_incoming_message(job_id: str) -> None:
         # ── 步骤2: LLM 规划 ──
         # 零指令（视频不带文字）同样进 L2 规划：SYSTEM_BASE 定义了默认方案
         # （remove_filler → apply_style 出模板成片），无文字任务不再卡死在这一步。
+        # PLANNING 阶段之前完全没有 current_stage 更新（只在 RUNNING_PIPELINE
+        # 才更新）——前端在这整个转写+规划期间只能显示同一句静态文案 + 通用
+        # heartbeat，跟这一步实际卡在哪完全脱节，真实确认过的用户体验问题。
         if not job.planned_edit:
+            update_job_fields(job_id, current_stage="Transcribing your video")
             _run_llm_planner(job, wa)
             job = get_job(job_id)  # 重新加载，获取最新状态
 

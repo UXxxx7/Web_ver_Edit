@@ -171,7 +171,7 @@ export const RiskGauge: React.FC<RiskGaugeProps> = ({
       <div
         style={{
           fontFamily: headingFont,
-          fontSize: 16,
+          fontSize: 18,
           fontWeight: 600,
           color: "rgba(255,255,255,0.45)",
           letterSpacing: 3,

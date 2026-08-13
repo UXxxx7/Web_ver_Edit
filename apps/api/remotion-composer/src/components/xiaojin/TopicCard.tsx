@@ -98,7 +98,7 @@ export const TopicCard: React.FC<TopicCardProps> = ({
         <TopicIcon name={icon} color={palette.accent} />
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        <span style={{ fontFamily: headingFont, fontSize: 30, fontWeight: 800, color: palette.ink, lineHeight: 1.25 }}>
+        <span style={{ fontFamily: headingFont, fontSize: 34, fontWeight: 800, color: palette.ink, lineHeight: 1.25 }}>
           {headline}
         </span>
         {sub ? (

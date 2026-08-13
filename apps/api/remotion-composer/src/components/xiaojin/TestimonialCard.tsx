@@ -81,12 +81,12 @@ export const TestimonialCard: React.FC<TestimonialCardProps> = ({
           background: palette.accent, display: "flex", alignItems: "center", justifyContent: "center",
           transform: `scale(${0.7 + 0.3 * avatarPop})`,
         }}>
-          <span style={{ fontFamily: headingFont, fontSize: 20, fontWeight: 800, color: "#FFFFFF" }}>
+          <span style={{ fontFamily: headingFont, fontSize: 24, fontWeight: 800, color: "#FFFFFF" }}>
             {initialsText}
           </span>
         </div>
         <div style={{ display: "flex", flexDirection: "column" }}>
-          <span style={{ fontFamily: headingFont, fontSize: 18, fontWeight: 800, color: palette.ink }}>
+          <span style={{ fontFamily: headingFont, fontSize: 22, fontWeight: 800, color: palette.ink }}>
             {name}
           </span>
           {role ? (

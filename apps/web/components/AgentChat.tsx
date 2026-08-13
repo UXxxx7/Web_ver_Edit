@@ -358,6 +358,6 @@ export function AgentChat() {
 // fields being empty is harmless; replaced by the real job within one round trip.
 const PENDING_JOB: EditJob = {
   job_id: "", status: "RECEIVED", input_video_path: null, preview_path: null, final_path: null,
-  planned_edit: null, error_message: null, edit_request: "", degraded_operations: [],
+  planned_edit: null, error_message: null, current_stage: null, edit_request: "", degraded_operations: [],
   generation_cost_usd: 0, pipeline: "talking-head", created_at: null, updated_at: null,
 };

@@ -135,7 +135,7 @@ export const InfoCard: React.FC<InfoCardProps> = ({
         transform: `translateY(${(1 - cardEntry) * 16}px)`,
       }}
     >
-      <div style={{ fontFamily: headingFont, fontSize: 13, fontWeight: 600, letterSpacing: 3, color: warn ? palette.bad : "rgba(255,255,255,0.55)", marginBottom: 6 }}>
+      <div style={{ fontFamily: headingFont, fontSize: 16, fontWeight: 600, letterSpacing: 3, color: warn ? palette.bad : "rgba(255,255,255,0.55)", marginBottom: 6 }}>
         {title.toUpperCase()}
       </div>
       {subtitle ? (
@@ -186,7 +186,7 @@ export const InfoCard: React.FC<InfoCardProps> = ({
               ) : null}
             </span>
             <span>
-              <span style={{ fontFamily: headingFont, fontSize: 52, fontWeight: 800, color: tone, fontVariantNumeric: "tabular-nums" }}>{displayValue}</span>
+              <span style={{ fontFamily: headingFont, fontSize: 60, fontWeight: 800, color: tone, fontVariantNumeric: "tabular-nums" }}>{displayValue}</span>
               {row.unit ? (
                 <span style={{ fontFamily: labelFont, fontSize: 18, fontWeight: 600, color: "#FFFFFF", opacity: 0.7, marginLeft: 6 }}>
                   {row.unit}

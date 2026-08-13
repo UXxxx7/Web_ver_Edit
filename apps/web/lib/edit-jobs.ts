@@ -29,6 +29,10 @@ export type EditJob = {
   final_path: string | null;
   planned_edit: PlannedEdit | null;
   error_message: string | null;
+  // Human-readable current pipeline step ("Removing filler words",
+  // "Applying the visual style", etc.) — null until the pipeline actually
+  // starts running. See apps/api/app/database.py's Job.current_stage.
+  current_stage: string | null;
   edit_request: string;
   degraded_operations: string[];
   generation_cost_usd: number;

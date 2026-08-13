@@ -73,7 +73,7 @@ export const RankedListCard: React.FC<RankedListCardProps> = ({
     >
       {title ? (
         <div style={{
-          fontFamily: headingFont, fontSize: 16, fontWeight: 600, letterSpacing: 3,
+          fontFamily: headingFont, fontSize: 18, fontWeight: 600, letterSpacing: 3,
           color: palette.inkSoft, textTransform: "uppercase", marginBottom: 18,
         }}>
           {title}
@@ -101,7 +101,7 @@ export const RankedListCard: React.FC<RankedListCardProps> = ({
                     background: isWinner ? palette.accent : "transparent",
                     border: isWinner ? "none" : `1.5px solid ${palette.inkSoft}`,
                     display: "flex", alignItems: "center", justifyContent: "center",
-                    fontFamily: headingFont, fontSize: 15, fontWeight: 800,
+                    fontFamily: headingFont, fontSize: 18, fontWeight: 800,
                     color: isWinner ? "#FFFFFF" : palette.inkSoft,
                   }}>
                     {i + 1}
@@ -120,7 +120,7 @@ export const RankedListCard: React.FC<RankedListCardProps> = ({
                     ) : null}
                   </div>
                 </div>
-                <span style={{ fontFamily: headingFont, fontSize: 24, fontWeight: 800, color: palette.ink }}>
+                <span style={{ fontFamily: headingFont, fontSize: 28, fontWeight: 800, color: palette.ink }}>
                   {item.displayValue ?? Math.round(shownValue)}{item.suffix ?? ""}
                 </span>
               </div>
