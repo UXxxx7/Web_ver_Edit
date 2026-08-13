@@ -33,9 +33,19 @@ export type MockGeneration = {
   result: unknown;
   created_at: string;
 };
-type DB = { users: MockUser[]; profiles: MockProfile[]; generations: MockGeneration[] };
+export type MockPost = {
+  id: string;
+  user_id: string;
+  author_name: string;
+  job_id: string;
+  video_filename: string;
+  caption: string;
+  liked_by: string[]; // user ids — mock-store equivalent of Supabase's post_likes table
+  created_at: string;
+};
+type DB = { users: MockUser[]; profiles: MockProfile[]; generations: MockGeneration[]; posts: MockPost[] };
 
-const EMPTY_DB: DB = { users: [], profiles: [], generations: [] };
+const EMPTY_DB: DB = { users: [], profiles: [], generations: [], posts: [] };
 
 async function readDb(): Promise<DB> {
   try {
@@ -132,4 +142,39 @@ export async function listGenerations(userId: string): Promise<MockGeneration[]>
   return db.generations
     .filter((g) => g.user_id === userId)
     .sort((a, b) => b.created_at.localeCompare(a.created_at));
+}
+
+export async function createPost(
+  entry: Omit<MockPost, "id" | "liked_by" | "created_at">
+): Promise<MockPost> {
+  return withLock((db) => {
+    const post: MockPost = { ...entry, id: randomUUID(), liked_by: [], created_at: new Date().toISOString() };
+    db.posts.unshift(post);
+    return post;
+  });
+}
+
+export async function listPosts(limit = 50): Promise<MockPost[]> {
+  const db = await readDb();
+  return [...db.posts].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, limit);
+}
+
+export async function toggleLike(postId: string, userId: string): Promise<MockPost | undefined> {
+  return withLock((db) => {
+    const post = db.posts.find((p) => p.id === postId);
+    if (!post) return undefined;
+    const i = post.liked_by.indexOf(userId);
+    if (i === -1) post.liked_by.push(userId);
+    else post.liked_by.splice(i, 1);
+    return post;
+  });
+}
+
+export async function deletePost(postId: string, userId: string): Promise<boolean> {
+  return withLock((db) => {
+    const i = db.posts.findIndex((p) => p.id === postId && p.user_id === userId);
+    if (i === -1) return false;
+    db.posts.splice(i, 1);
+    return true;
+  });
 }
