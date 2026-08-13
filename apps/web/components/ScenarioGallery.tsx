@@ -43,7 +43,7 @@ export function ScenarioGallery({
   const industryLabel = industryKey ? INDUSTRY_LABEL[industryKey][lang] : null;
 
   return (
-    <section className="scenario-gallery">
+    <section id="scenario-gallery" className="scenario-gallery">
       <div className="scenario-gallery-head">
         <h2>
           {t.heading(industryLabel)}

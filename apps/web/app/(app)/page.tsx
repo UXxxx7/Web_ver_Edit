@@ -10,5 +10,6 @@ export default async function DashboardPage() {
     getProfile(user.id),
     getLang(),
   ]);
-  return <Dashboard initialHistory={history} role={profile.role} uiLang={uiLang} />;
+  const profileComplete = Boolean(profile.display_name.trim() && profile.role.trim());
+  return <Dashboard initialHistory={history} role={profile.role} profileComplete={profileComplete} uiLang={uiLang} />;
 }

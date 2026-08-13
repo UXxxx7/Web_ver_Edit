@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { generateContentAction } from "@/app/(app)/actions";
+import { OnboardingChecklist } from "@/components/OnboardingChecklist";
 import { ResultCard } from "@/components/ResultCard";
 import { ScenarioGallery } from "@/components/ScenarioGallery";
 import { TOOL_META, type GenerationKind } from "@/lib/generation-types";
@@ -27,10 +28,11 @@ function historyToMessages(history: Generation[]): ChatMsg[] {
 }
 
 export function Dashboard({
-  initialHistory, role, uiLang,
+  initialHistory, role, profileComplete, uiLang,
 }: {
   initialHistory: Generation[];
   role: string; // profile.role — see lib/scenario-templates.ts for how this personalizes the gallery below
+  profileComplete: boolean; // display_name && role both set — feeds OnboardingChecklist's step 1
   // Site display language (ui_lang cookie) — only the scenario gallery's own
   // card labels/copy. Named uiLang, not lang, to avoid shadowing submit()'s
   // own `lang` below (that one's per-message, auto-detected from the
@@ -86,6 +88,14 @@ export function Dashboard({
 
   return (
     <div className="dash">
+      <OnboardingChecklist
+        lang={uiLang}
+        profileComplete={profileComplete}
+        // Live `messages` state, not the initialHistory prop — so a
+        // generation fired in this same session (e.g. from a scenario
+        // card) checks step 2 off immediately, not just after a reload.
+        hasGeneration={messages.some((m) => m.role === "bot" && m.status === "done")}
+      />
       <ScenarioGallery role={role} lang={uiLang} pendingKinds={pendingKinds} onFire={fireScenario} />
       <ToolBar kind="video_script" pending={pendingKinds.has("video_script")} onSubmit={submit} primary />
       <ToolBar kind="shooting_script" pending={pendingKinds.has("shooting_script")} onSubmit={submit} />

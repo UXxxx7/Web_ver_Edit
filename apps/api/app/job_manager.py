@@ -103,6 +103,19 @@ def get_jobs_by_batch(batch_id: str) -> list[Job]:
         session.close()
 
 
+def count_jobs_for_user(user_id: int) -> int:
+    """呢個用戶總共起過幾多個 job（唔理 pipeline/status，包括 C-roll——
+    pipeline 呢個字段對 C-roll/普通剪輯都係同一個預設值 "talking-head"，
+    apps/web 兩條路徑都係咁傳，唔可以靠佢分辨，所以呢度故意唔分類型，
+    淨係計"有冇起過"）。畀 apps/web 首頁個 onboarding checklist 用——
+    唔需要完整 job 列表,一個數就夠。"""
+    session = get_session()
+    try:
+        return session.query(Job).filter(Job.user_id == user_id).count()
+    finally:
+        session.close()
+
+
 def get_jobs_by_status(statuses: list[JobStatus]) -> list[Job]:
     """获取处于指定状态的任务列表（用于启动时找孤儿任务，不预加载 user/messages）。"""
     session = get_session()

@@ -59,3 +59,23 @@ export async function generateContentAction(
   await addGeneration(user.id, kind, direction, result);
   return { result };
 }
+
+export type OnboardingStatus = { jobCount: number; voiceCloned: boolean };
+
+// Backs the home dashboard's onboarding checklist (components/
+// OnboardingChecklist.tsx). Fails soft (jobCount: 0, voiceCloned: false)
+// rather than throwing — this is a "nice to have" progress widget, not
+// something that should ever block the dashboard from rendering if
+// apps/api hiccups.
+export async function getOnboardingStatusAction(): Promise<OnboardingStatus> {
+  const user = await requireUser();
+  const apiBase = process.env.API_BASE_URL || "http://localhost:8001";
+  try {
+    const res = await fetch(`${apiBase}/users/${encodeURIComponent(user.id)}/onboarding-status`, { cache: "no-store" });
+    if (!res.ok) return { jobCount: 0, voiceCloned: false };
+    const data = await res.json();
+    return { jobCount: Number(data.job_count) || 0, voiceCloned: Boolean(data.voice_cloned) };
+  } catch {
+    return { jobCount: 0, voiceCloned: false };
+  }
+}
