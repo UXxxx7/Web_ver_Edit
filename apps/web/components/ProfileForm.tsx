@@ -7,27 +7,58 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { updateProfileAction, type ProfileFormState } from "@/app/(app)/profile/actions";
 import type { Profile } from "@/lib/data";
+import type { Lang } from "@/lib/i18n";
 
 const initialState: ProfileFormState = {};
 
-export function ProfileForm({ profile }: { profile: Profile }) {
+const DICT = {
+  zh: {
+    displayName: "顯示名稱",
+    displayNamePh: "例如：陳大文",
+    role: "職業",
+    rolePh: "例如：保險從業員/KOL",
+    preferredLang: "內容生成語言",
+    brandVoice: "品牌語氣筆記",
+    brandVoicePh: "語氣、慣用/忌用字眼、目標客群 — 每次生成劇本/靈感都會用到。",
+    brandVoiceHint: "所有靈感工具都會自動用呢個 — 設定一次，唔使每次都打一次。",
+    saved: "已儲存。",
+    save: "儲存資料",
+    saving: "儲存緊…",
+  },
+  en: {
+    displayName: "Display name",
+    displayNamePh: "e.g. David Chan",
+    role: "Role",
+    rolePh: "e.g. 保險從業員/KOL",
+    preferredLang: "Preferred language",
+    brandVoice: "Brand voice notes",
+    brandVoicePh: "Tone, phrases to always/never use, target audience — fed into every script/idea this account generates.",
+    brandVoiceHint: "Every brainstorm tool includes this automatically — set it once instead of repeating it per prompt.",
+    saved: "Saved.",
+    save: "Save profile",
+    saving: "Saving…",
+  },
+} satisfies Record<Lang, unknown>;
+
+export function ProfileForm({ profile, lang }: { profile: Profile; lang: Lang }) {
   const [state, formAction, pending] = useActionState(updateProfileAction, initialState);
+  const t = DICT[lang];
 
   return (
     <form action={formAction} className="flex flex-col gap-5">
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="display_name">Display name</Label>
-          <Input id="display_name" name="display_name" defaultValue={profile.display_name} placeholder="e.g. David Chan" />
+          <Label htmlFor="display_name">{t.displayName}</Label>
+          <Input id="display_name" name="display_name" defaultValue={profile.display_name} placeholder={t.displayNamePh} />
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="role">Role</Label>
-          <Input id="role" name="role" defaultValue={profile.role} placeholder="e.g. 保險從業員/KOL" />
+          <Label htmlFor="role">{t.role}</Label>
+          <Input id="role" name="role" defaultValue={profile.role} placeholder={t.rolePh} />
         </div>
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="preferred_lang">Preferred language</Label>
+        <Label htmlFor="preferred_lang">{t.preferredLang}</Label>
         <select
           id="preferred_lang"
           name="preferred_lang"
@@ -40,23 +71,21 @@ export function ProfileForm({ profile }: { profile: Profile }) {
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="brand_voice_notes">Brand voice notes</Label>
+        <Label htmlFor="brand_voice_notes">{t.brandVoice}</Label>
         <Textarea
           id="brand_voice_notes"
           name="brand_voice_notes"
           defaultValue={profile.brand_voice_notes}
           rows={4}
-          placeholder="Tone, phrases to always/never use, target audience — fed into every script/idea this account generates."
+          placeholder={t.brandVoicePh}
         />
-        <p className="text-xs text-muted-foreground">
-          Every brainstorm tool includes this automatically — set it once instead of repeating it per prompt.
-        </p>
+        <p className="text-xs text-muted-foreground">{t.brandVoiceHint}</p>
       </div>
 
-      {state.saved && <p className="text-sm text-primary">Saved.</p>}
+      {state.saved && <p className="text-sm text-primary">{t.saved}</p>}
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
       <Button type="submit" disabled={pending} className="w-fit">
-        {pending ? "Saving…" : "Save profile"}
+        {pending ? t.saving : t.save}
       </Button>
     </form>
   );

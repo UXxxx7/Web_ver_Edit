@@ -106,6 +106,46 @@
   --dash-nav-bg: #FFFFFF;
 }
 
+/* Pins the light palette regardless of system/OS dark mode — for pages
+   (marketing landing) that should always read as premium-white, not follow
+   the app's normal system-theme dark mode. Custom properties inherit down
+   the DOM tree, so redeclaring them here on a descendant wins over
+   whatever .dark set higher up (e.g. on <html> from next-themes). */
+.force-light {
+  --background: #F4F6FB;
+  --foreground: #0F1B3C;
+  --card: #FFFFFF;
+  --card-foreground: #0F1B3C;
+  --popover: #FFFFFF;
+  --popover-foreground: #0F1B3C;
+  --primary: #3E63FF;
+  --primary-foreground: #FFFFFF;
+  --secondary: #EEF1F8;
+  --secondary-foreground: #0F1B3C;
+  --muted: #EEF1F8;
+  --muted-foreground: #5B6B8C;
+  --accent: #E7ECFB;
+  --accent-foreground: #0F1B3C;
+  --border: #DEE3F0;
+  --input: #DEE3F0;
+  --ring: #3E63FF;
+
+  /* The brainstorm dashboard (.dash, .gen-bar, .bubble, ...) reads its own
+     --dash-* tokens, not the shadcn ones above — pin those too so the whole
+     app (not just /welcome and auth) stays premium-white if it opts in. */
+  --dash-bg: #F4F6FB;
+  --dash-card: #FFFFFF;
+  --dash-text: #0F1B3C;
+  --dash-muted: #5B6B8C;
+  --dash-accent: #3E63FF;
+  --dash-accent-ink: #FFFFFF;
+  --dash-border: #DEE3F0;
+  --dash-pill-bg: color-mix(in srgb, #3E63FF 12%, transparent);
+  --dash-bubble-user: #0F1B3C;
+  --dash-bubble-user-text: #F4F6FB;
+  --dash-nav-bg: #FFFFFF;
+}
+
 .dark {
   --background: #0B1020;
   --foreground: #EDEFF7;
