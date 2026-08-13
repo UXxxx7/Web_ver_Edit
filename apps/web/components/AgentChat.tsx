@@ -268,7 +268,7 @@ export function AgentChat() {
             return (
               <div key={msg.id} className="msg from-bot">
                 <div className="bubble">
-                  {msg.kind === "text" ? msg.text : <AgentJobBubble job={msg.job} onUpdate={(job) => updateJobMessage(msg.id, job)} onHeartbeat={pushBotText} />}
+                  {msg.kind === "text" ? msg.text : <AgentJobBubble job={msg.job} onUpdate={(job) => updateJobMessage(msg.id, job)} />}
                 </div>
               </div>
             );
