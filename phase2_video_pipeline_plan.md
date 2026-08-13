@@ -382,6 +382,115 @@ props end-to-end (needs a completed job with real `_op_apply_style_props.json`
 on disk, which the cleanup after the last `/croll` test deleted) — next
 concrete thing to check, not assumed working from the plumbing checks alone.
 
+## 2026-08-12: Agent chat fidelity pass + standalone Editor entry
+
+User supplied 4 real WhatsApp screenshots of the original product as a
+reference and one screenshot of the manual editor, then two concrete asks:
+
+1. **Editor needed a real standalone entry point**, not a link buried
+   inside a chat bubble. Added: nav → `/editor` → `EditorPicker.tsx` (lists
+   job ids from `lib/recent-jobs.ts`, a client-side localStorage list
+   `AgentChat` appends to when it creates a job — apps/api has no
+   "list jobs by user" endpoint yet, so this is what "recent" means for
+   now; a manual job-id paste field covers jobs from elsewhere). The
+   contextual "Open manual editor" link inside a job's chat bubble stays
+   too, as a shortcut — the standalone page was the missing piece, not a
+   replacement.
+2. **The Agent chat was missing real interaction depth** the screenshots
+   made obvious:
+   - **Multi-attachment collection**: the original lets you send several
+     files before "go" (main video + b-roll photos + a style-reference
+     video) — the UI only fired a job per single attachment before this.
+     Now: attachments stage in a chip row (📎 button can be clicked
+     repeatedly), each gets an ack bot message ("已收到第 N 个视频/图片…"),
+     Send finalizes: first video = main, a 2nd video = the style reference
+     (`/jobs`' own `reference`/`reference_kind` fields), any images = b-roll
+     (`broll[]`/`broll_labels[]`/`broll_kinds[]` — same shape `/croll`
+     already used, extended to `/jobs` here since the UI never sent them
+     before). Audio attachments bypass staging — fire immediately as
+     voice-clone, since that's a distinct action, not part of "the video".
+   - **Plan messages render as markdown** (`react-markdown` + `.agent-markdown`
+     CSS) instead of plain whitespace-pre-wrap text — headers/bold/lists
+     from `planned_edit.summary` actually render now, matching the
+     structured "依据/实际" reasoning shown in the WhatsApp screenshots.
+   - **Heartbeat reassurance messages**: WhatsApp's `worker.js` sends "还在
+     处理中，这一步比预计慢一点…" a few times during long (3-10+ min) steps
+     instead of leaving a single static spinner up. Reproduced client-side
+     in `AgentJobBubble` — a 60s-interval check inside the existing polling
+     loop appends a new bot text bubble via an `onHeartbeat` callback
+     (lifted up to `AgentChat` since only it can append arbitrary new
+     thread messages, not just update the job's own bubble in place).
+
+**Verified**: `npm run build` clean; `/agent` and `/editor` both render for
+a real authenticated session. **Not yet verified**: an actual multi-file
+staged submission end-to-end (does `/jobs` really register broll+reference
+correctly when called this way — the fields were already proven working
+individually in earlier phases, but not through this exact new staging
+path), and the heartbeat firing during a real long render (needs a job to
+actually run past 60s while someone's watching, wasn't specifically
+re-tested this pass). Next live-testing candidates, not assumed from the
+build passing.
+
+## 2026-08-12: Upstream sync (editor save/re-render, PR #58 + 2 more)
+
+User asked to check for and merge in updates from the source repo
+(`/Users/liuyubo/OpenMontage-p2`, `origin/whatsapp-studio`). 3 new commits
+had landed since the Phase 2a port, headlined by PR #58
+"feat/editor-dashboard-integration" — the manual editor's **Save & re-render**
+backend, which was an explicitly documented gap above ("not yet verified:
+the editor SPA actually loading and rendering a real job's props"). This
+sync brings the actual missing piece: `POST /editor/{id}/props`,
+`/editor/{id}/overrides`, `/editor/{id}/relayout`.
+
+**Adopted verbatim**: `cost_tracking.py` (new), `database.py` (purely
+additive schema, self-migrating), `pipeline_runner.py`, `worker.py`,
+`authored/{tsx_validator,authored_renderer}.py`,
+`tools/{audio,video,enhancement}/*.py` (`-movflags +faststart` — likely
+fixes the editor preview's black-video issue), `clip_factory.py` (bugfix:
+dropped an invalid `workdir=` kwarg).
+
+**Re-adapted** (not verbatim): `webhook.py` — re-applied the same recipe as
+the original port on top of the new upstream version (strip WhatsApp-only
+message routes, `FastAPI` → `router = APIRouter()`, `whatsapp_mvp` →
+`openmontage_web` queue name, `/health` → `/jobs-health`, `wa_number: str =
+Form("api_user")` param instead of the hardcoded shared-account call).
+
+**Deliberately NOT synced**: `job_manager.py`. Its upstream diff is exactly
+two function removals — `set_user_voice_clone()` and `get_jobs_by_batch()`
+— with no replacement anywhere in the new tree (checked `database.py` and
+grepped the whole new codebase). Both old and new `webhook.py` still import
+and call both functions (`/voice-clone`, `/batches/{batch_id}`). This is a
+real regression on `origin/whatsapp-studio` itself, most likely introduced
+by PR #58's own "rebase editor backend onto origin's current tip" commit
+accidentally dropping unrelated hunks. Kept the existing `job_manager.py`
+unchanged — it still has both functions, and nothing else in its diff was
+worth taking.
+
+**Reference pattern check**: `server/dashboard.html`/`index.js` (old
+Node-gateway UI, not part of this Next.js app) got a real "Edit" button on
+each finished video card, minting a link via `POST /jobs/{id}/editor_token`
+and opening `editor_url` in a new tab — confirms `EditorPicker.tsx`'s
+`getEditorUrl()` (built in the previous session) already does the
+equivalent thing correctly; no changes needed there.
+
+**Verified**: `apps/api` imports clean, all 24 `webhook.py` routes register
+including the 3 new editor endpoints (confirmed via `router.routes`, not
+just "no import error"). Booted the real server; `POST
+/jobs/{id}/editor_token` and `GET /editor/{id}/props` both exercised live
+against an existing `PREVIEW_READY` job from an earlier session — token
+auth + job lookup executes correctly (returned a clean "no styled render
+yet" 404 for that specific job, not a crash, which is the correct behavior
+since that job predates this pipeline stage). **Not yet verified**: a fresh
+job actually reaching a save-able state (styled render / authored scene)
+and a real Save → re-render round trip — would need a full confirm→render
+pass, real LLM/render cost, not run this session since it wasn't necessary
+to validate the merge landed cleanly. Next concrete live-test candidate.
+
+Committed on `sync/upstream-editor-save-2026-08-12` off `main`, PR opened
+(https://github.com/UXxxx7/Web_ver_Edit/pull/5), then locally merged into
+`agent-chat-fidelity-and-editor-entry` so the dev servers being tested here
+carry both — same pattern as the earlier brainstorm-routing fix.
+
 ## Explicitly not doing in this phase
 - Editor SPA exposure decision (revisit after 2a/2b)
 - `social_batch.py`/`social_caption.py` (Phase 4)
