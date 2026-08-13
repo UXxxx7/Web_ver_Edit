@@ -11,7 +11,16 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { COOKIE_NAME, verifySessionToken } from "./lib/session";
 
-const PUBLIC_PATHS = ["/login", "/signup"];
+// Auth pages: accessible when logged out, bounce back to "/" once logged in
+// (no reason to see a login form twice). "/welcome" is the public marketing
+// page — accessible either way, since a signed-in visitor previewing it
+// shouldn't get yanked back into the app.
+const AUTH_PATHS = ["/login", "/signup"];
+// "/showcase" is the static image/video assets the /welcome page embeds —
+// needs to be fetchable by a logged-out visitor's <img>/<video> tags too,
+// same reasoning as /welcome itself.
+const OPEN_PATHS = ["/welcome", "/showcase"];
+const PUBLIC_PATHS = [...AUTH_PATHS, ...OPEN_PATHS];
 
 function isSupabaseConfigured(): boolean {
   return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
@@ -20,11 +29,12 @@ function isSupabaseConfigured(): boolean {
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  const isAuthPage = AUTH_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
   if (!isSupabaseConfigured()) {
     const authed = Boolean(verifySessionToken(request.cookies.get(COOKIE_NAME)?.value));
     if (!authed && !isPublic) return NextResponse.redirect(new URL("/login", request.url));
-    if (authed && isPublic) return NextResponse.redirect(new URL("/", request.url));
+    if (authed && isAuthPage) return NextResponse.redirect(new URL("/", request.url));
     return NextResponse.next();
   }
 
@@ -50,7 +60,7 @@ export async function proxy(request: NextRequest) {
   const { data } = await supabase.auth.getUser();
   const authed = Boolean(data.user);
   if (!authed && !isPublic) return NextResponse.redirect(new URL("/login", request.url));
-  if (authed && isPublic) return NextResponse.redirect(new URL("/", request.url));
+  if (authed && isAuthPage) return NextResponse.redirect(new URL("/", request.url));
   return response;
 }
 

@@ -8,7 +8,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!user) redirect("/login"); // proxy.ts already guards this; belt-and-suspenders for direct server-render.
 
   return (
-    <div className="flex min-h-dvh flex-col bg-background">
+    <div className="force-light flex min-h-dvh flex-col bg-background text-foreground">
       <nav className="flex shrink-0 items-center justify-between border-b border-border bg-card px-5 py-3">
         <Link href="/" className="flex items-center gap-2">
           <span className="h-[7px] w-[7px] rotate-45 rounded-[2px] bg-primary" />
