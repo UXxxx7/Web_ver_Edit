@@ -212,6 +212,23 @@
   min-height: 100%; display: flex; flex-direction: column;
 }
 
+/* Drag-and-drop onto AgentChat.tsx — full-page overlay while dragging a
+   file over the window, not just a small drop target, since "drag a video
+   in" should work anywhere on the page, not require aiming at the compose
+   bar specifically. */
+.agent-dropzone { position: relative; }
+.agent-dropzone-overlay {
+  position: absolute; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--dash-accent) 10%, transparent);
+  border: 2px dashed var(--dash-accent); border-radius: var(--radius-lg);
+  pointer-events: none; margin: 8px;
+}
+.agent-dropzone-overlay p {
+  background: var(--dash-card); border: 1px solid var(--dash-border); border-radius: 999px;
+  padding: 10px 20px; font-size: 14px; font-weight: 700; color: var(--dash-accent);
+  box-shadow: 0 8px 24px -8px color-mix(in srgb, var(--dash-accent) 40%, transparent);
+}
+
 .gen-bar {
   display: flex; align-items: center; gap: 8px; padding: 10px 20px;
   border-bottom: 1px solid var(--dash-border); flex-shrink: 0;
