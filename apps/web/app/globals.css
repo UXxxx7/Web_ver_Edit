@@ -263,6 +263,41 @@
 }
 .onboarding-step-cta:hover { background: var(--dash-pill-bg); }
 
+/* Recent work — video jobs (Agent/Editor), see components/RecentWork.tsx.
+   Thumbnails are the actual preview/final <video>'s first frame (no
+   dedicated thumbnail asset exists server-side), shown static via
+   preload="metadata" — deliberately not autoplaying a whole grid of
+   videos at once. */
+.recent-work { padding: 20px 20px 4px; border-bottom: 1px solid var(--dash-border); flex-shrink: 0; }
+.recent-work-head h2 { margin: 0 0 12px; font-size: 15.5px; font-weight: 700; color: var(--dash-text); }
+.recent-work-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; padding-bottom: 16px; }
+.recent-work-card {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 6px; text-align: left;
+  background: var(--dash-card); border: 1px solid var(--dash-border); border-radius: var(--radius-md);
+  padding: 8px; cursor: pointer; font-family: inherit; color: inherit;
+  transition: transform 0.12s ease, border-color 0.12s ease;
+}
+.recent-work-card:hover { transform: translateY(-2px); border-color: var(--dash-accent); }
+.recent-work-card.is-skeleton { aspect-ratio: 3 / 4; background: var(--dash-pill-bg); border-style: dashed; cursor: default; animation: dash-pulse 1.4s ease-in-out infinite; }
+@keyframes dash-pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 0.9; } }
+.recent-work-thumb {
+  position: relative; width: 100%; aspect-ratio: 9 / 12; border-radius: var(--radius-sm); overflow: hidden;
+  background: color-mix(in srgb, var(--dash-text) 6%, transparent); display: flex; align-items: center; justify-content: center;
+}
+.recent-work-thumb video { width: 100%; height: 100%; object-fit: cover; }
+.recent-work-thumb-placeholder { font-size: 26px; opacity: 0.5; }
+.recent-work-status {
+  position: absolute; left: 6px; bottom: 6px; font-size: 10px; font-weight: 700; padding: 2px 7px;
+  border-radius: 999px; color: #fff; backdrop-filter: blur(2px);
+}
+.recent-work-status-progress { background: color-mix(in srgb, var(--dash-accent) 85%, black); }
+.recent-work-status-action { background: color-mix(in srgb, #F59E0B 85%, black); }
+.recent-work-status-ready { background: color-mix(in srgb, #22C55E 80%, black); }
+.recent-work-status-error { background: color-mix(in srgb, #EF4444 80%, black); }
+.recent-work-title { font-size: 12px; font-weight: 600; color: var(--dash-text); line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.recent-work-time { font-size: 10.5px; color: var(--dash-muted); }
+.recent-work-error { font-size: 12px; color: var(--dash-accent); margin: 0 0 12px; }
+
 /* Scenario gallery — personalized "quick start" cards above the thread,
    see components/ScenarioGallery.tsx. Same --dash-* tokens as the rest of
    this dashboard; card icon backgrounds use each scenario's own accent

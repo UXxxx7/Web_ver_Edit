@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { generateContentAction } from "@/app/(app)/actions";
 import { OnboardingChecklist } from "@/components/OnboardingChecklist";
+import { RecentWork } from "@/components/RecentWork";
 import { ResultCard } from "@/components/ResultCard";
 import { ScenarioGallery } from "@/components/ScenarioGallery";
 import { TOOL_META, type GenerationKind } from "@/lib/generation-types";
@@ -97,6 +98,7 @@ export function Dashboard({
         hasGeneration={messages.some((m) => m.role === "bot" && m.status === "done")}
       />
       <ScenarioGallery role={role} lang={uiLang} pendingKinds={pendingKinds} onFire={fireScenario} />
+      <RecentWork lang={uiLang} />
       <ToolBar kind="video_script" pending={pendingKinds.has("video_script")} onSubmit={submit} primary />
       <ToolBar kind="shooting_script" pending={pendingKinds.has("shooting_script")} onSubmit={submit} />
       <ToolBar kind="content_idea" pending={pendingKinds.has("content_idea")} onSubmit={submit} />
