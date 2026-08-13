@@ -148,7 +148,6 @@ export function AgentJobBubble({
       {job.status === "PREVIEW_READY" && (
         <>
           {fileUrl(job.job_id, job.preview_path) && (
-            // eslint-disable-next-line jsx-a11y/media-has-caption
             <video controls className="w-full max-w-[280px] rounded-lg" src={fileUrl(job.job_id, job.preview_path)!} />
           )}
           {job.degraded_operations.length > 0 && (
@@ -176,7 +175,6 @@ export function AgentJobBubble({
         <>
           {fileUrl(job.job_id, job.final_path) && (
             <>
-              {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
               <video controls className="w-full max-w-[280px] rounded-lg" src={fileUrl(job.job_id, job.final_path)!} />
               <a
                 href={fileUrl(job.job_id, job.final_path)!}
