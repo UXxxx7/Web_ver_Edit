@@ -365,13 +365,32 @@ async def create_croll_endpoint(
     艺人 A 的声音会出现在艺人 B 的视频里。Node 网关这边已经把真实 waNumber
     传进来了，见 server/worker.js 的 createPythonCrollJob。
     """
+    photo_data = await photo.read()
+    ext = (os.path.splitext(photo.filename or "")[1].lstrip(".") or "jpg").lower()
+
+    # Content-safety pre-check on a temp file, BEFORE any job row/job_dir
+    # exists — see content_safety.py's header for why (real incident,
+    # 2026-08-12: a children's-classroom photo almost went to HeyGen, only
+    # caught by HeyGen's own filter after the fact). Fail-open if the
+    # vision LLM is unavailable (HeyGen's own filter is still a backstop),
+    # but a confirmed "unsafe" verdict rejects here — no job ever created.
+    import tempfile
+    from .content_safety import check_photo_safety
+    with tempfile.NamedTemporaryFile(suffix=f".{ext}", delete=False) as _tmp:
+        _tmp.write(photo_data)
+        _tmp_path = _tmp.name
+    try:
+        safety = check_photo_safety(_tmp_path)
+    finally:
+        os.unlink(_tmp_path)
+    if not safety.safe:
+        raise HTTPException(status_code=400, detail=f"This photo can't be used for C-roll: {safety.reason}")
+
     user = get_or_create_user(wa_number)
     job = create_job(user_id=user.id, pipeline=pipeline, input_caption=hint)
 
     job_dir = job.job_dir
     job_dir.mkdir(parents=True, exist_ok=True)
-    photo_data = await photo.read()
-    ext = (os.path.splitext(photo.filename or "")[1].lstrip(".") or "jpg").lower()
     photo_path = job_dir / f"source_photo.{ext}"
     photo_path.write_bytes(photo_data)
 
