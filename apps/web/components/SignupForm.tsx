@@ -29,7 +29,8 @@ const DICT = {
     password: "密碼 Password",
     minLength: "最少 8 個字",
     occupation: "你嘅行業？（可選）",
-    occupationHint: "等我哋可以幫你度返啱你行業嘅內容同idea，唔揀都得，之後喺個人資料度都可以填。",
+    occupationPh: "揀返上面一個，或者自己打",
+    occupationHint: "等我哋可以幫你度返啱你行業嘅內容同idea，唔填都得，之後喺個人資料度都可以填。",
     submit: "免費註冊",
     pending: "註冊緊…",
     hasAccount: "已經有帳戶？",
@@ -42,7 +43,8 @@ const DICT = {
     password: "Password",
     minLength: "At least 8 characters.",
     occupation: "Your industry (optional)",
-    occupationHint: "Makes it easier to brainstorm ideas for your industry. Skip it now and fill it in later on your profile.",
+    occupationPh: "Pick one above, or type your own",
+    occupationHint: "Makes it easier to brainstorm ideas for your industry. Leave it blank — you can fill it in later on your profile.",
     submit: "Create account",
     pending: "Creating account…",
     hasAccount: "Already have an account?",
@@ -52,7 +54,7 @@ const DICT = {
 
 export function SignupForm({ lang }: { lang: Lang }) {
   const [state, formAction, pending] = useActionState(signupAction, initialState);
-  const [occupation, setOccupation] = useState<string | null>(null);
+  const [occupation, setOccupation] = useState("");
   const t = DICT[lang];
 
   return (
@@ -74,13 +76,13 @@ export function SignupForm({ lang }: { lang: Lang }) {
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label>{t.occupation}</Label>
+            <Label htmlFor="role">{t.occupation}</Label>
             <div className="flex flex-wrap gap-1.5">
               {OCCUPATIONS[lang].map((opt) => (
                 <button
                   key={opt}
                   type="button"
-                  onClick={() => setOccupation((cur) => (cur === opt ? null : opt))}
+                  onClick={() => setOccupation((cur) => (cur === opt ? "" : opt))}
                   aria-pressed={occupation === opt}
                   className={cn(
                     "rounded-full border px-3 py-1.5 text-[13px] font-medium transition-colors",
@@ -93,8 +95,15 @@ export function SignupForm({ lang }: { lang: Lang }) {
                 </button>
               ))}
             </div>
+            <Input
+              id="role"
+              name="role"
+              value={occupation}
+              onChange={(e) => setOccupation(e.target.value)}
+              placeholder={t.occupationPh}
+              className="h-10"
+            />
             <p className="text-xs text-muted-foreground">{t.occupationHint}</p>
-            <input type="hidden" name="role" value={occupation ?? ""} />
           </div>
 
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}
