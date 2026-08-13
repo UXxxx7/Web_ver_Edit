@@ -30,27 +30,47 @@ export interface XiaojinPalette {
   captionHighlight: string;
 }
 
+// "warm" mode rebrand (2026-08-12): the cream/terracotta identity read as
+// earthy/bland and is being replaced in place, not added alongside as a new
+// key — every existing caller/default already asks for "warm", so redefining
+// its values (not its key) rebrands every video with zero interface changes
+// and zero schema/contract updates. New identity: light graph-paper grid
+// canvas (bg/bgDeep are multi-layer CSS gradients, not flat colors — a thin
+// gray ruled grid over a near-white paper tone, not a solid fill), near-black
+// cool-neutral ink instead of warm brown, indigo primary accent instead of
+// terracotta, orange kept only as a secondary punch color (accentAlt).
+const GRID_LINE = "rgba(20,20,24,0.09)";
+const GRID_LINE_DEEP = "rgba(20,20,24,0.14)";
+const GRID_CELL = 88;
+// Dark mode never got the grid-paper treatment above — it stayed a flat solid
+// fill (#0D1117/#090C10), so any section overriding to dark (e.g. SectionLayer's
+// `warn` takeovers) visibly broke the brand identity's "everything is grid
+// canvas" rule. Same construction, light lines on the dark base instead of
+// dark lines on the light one.
+const GRID_LINE_ON_DARK = "rgba(255,255,255,0.05)";
+const GRID_LINE_ON_DARK_DEEP = "rgba(255,255,255,0.08)";
+
 export const PALETTES: Record<ColorMode, XiaojinPalette> = {
   warm: {
-    bg: "#F2EBE0",
-    bgDeep: "#E7DCC9",
+    bg: `linear-gradient(${GRID_LINE} 1px, transparent 1px) 0 0 / ${GRID_CELL}px ${GRID_CELL}px, linear-gradient(90deg, ${GRID_LINE} 1px, transparent 1px) 0 0 / ${GRID_CELL}px ${GRID_CELL}px, #FAFAF8`,
+    bgDeep: `linear-gradient(${GRID_LINE_DEEP} 1px, transparent 1px) 0 0 / ${GRID_CELL}px ${GRID_CELL}px, linear-gradient(90deg, ${GRID_LINE_DEEP} 1px, transparent 1px) 0 0 / ${GRID_CELL}px ${GRID_CELL}px, #F0F0EC`,
     card: "#FFFFFF",
-    cardAlt: "#F8F4ED",
-    ink: "#2A2620",
-    inkSoft: "#7A7060",
-    accent: "#C4714A", // terracotta
-    accentAlt: "#E0552F", // orange-red
+    cardAlt: "#F5F5F2",
+    ink: "#181A1B",
+    inkSoft: "#6B6F76",
+    accent: "#4F46E5", // indigo — replaces terracotta as the primary identity color
+    accentAlt: "#FF6B35", // vivid orange — secondary punch color only, not dominant
     good: "#4F9D69",
     bad: "#CF5448",
-    line: "rgba(42,38,32,0.10)",
-    shadow: "rgba(60,45,30,0.22)",
+    line: "rgba(20,20,24,0.10)",
+    shadow: "rgba(20,20,26,0.18)",
     captionBg: "rgba(0,0,0,0.55)",
     captionText: "#FFFFFF",
-    captionHighlight: "#E0552F",
+    captionHighlight: "#4F46E5",
   },
   dark: {
-    bg: "#0D1117",
-    bgDeep: "#090C10",
+    bg: `linear-gradient(${GRID_LINE_ON_DARK} 1px, transparent 1px) 0 0 / ${GRID_CELL}px ${GRID_CELL}px, linear-gradient(90deg, ${GRID_LINE_ON_DARK} 1px, transparent 1px) 0 0 / ${GRID_CELL}px ${GRID_CELL}px, #0D1117`,
+    bgDeep: `linear-gradient(${GRID_LINE_ON_DARK_DEEP} 1px, transparent 1px) 0 0 / ${GRID_CELL}px ${GRID_CELL}px, linear-gradient(90deg, ${GRID_LINE_ON_DARK_DEEP} 1px, transparent 1px) 0 0 / ${GRID_CELL}px ${GRID_CELL}px, #090C10`,
     card: "#161B22",
     cardAlt: "#1C2129",
     ink: "#F0F2F5",

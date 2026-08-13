@@ -100,7 +100,7 @@ export const IntroTitle: React.FC<IntroTitleProps> = ({
       <span
         style={{
           fontFamily: headingFont,
-          fontSize: 108,
+          fontSize: 124,
           fontWeight: 800,
           color: "#FFFFFF",
           lineHeight: 1.0,
@@ -126,7 +126,7 @@ export const IntroTitle: React.FC<IntroTitleProps> = ({
       <span
         style={{
           fontFamily: headingFont,
-          fontSize: 34,
+          fontSize: 40,
           fontWeight: 600,
           color: "rgba(255,255,255,0.72)",
           letterSpacing: 1,

@@ -120,7 +120,7 @@ export const TitleImpactIntro: React.FC<TitleImpactIntroProps> = ({
       <span
         style={{
           fontFamily: headingFont,
-          fontSize: 132,
+          fontSize: 152,
           fontWeight: 800,
           color: palette.ink,
           lineHeight: 0.98,
@@ -135,7 +135,7 @@ export const TitleImpactIntro: React.FC<TitleImpactIntroProps> = ({
       <span
         style={{
           fontFamily: headingFont,
-          fontSize: 30,
+          fontSize: 34,
           fontWeight: 600,
           color: palette.inkSoft,
           letterSpacing: 0.5,

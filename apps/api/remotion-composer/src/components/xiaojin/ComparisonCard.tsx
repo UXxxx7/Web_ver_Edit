@@ -71,7 +71,7 @@ export const ComparisonCard: React.FC<ComparisonCardProps> = ({
     <div style={{ position: "absolute", left: x, top: y, width, opacity: cardEntry * exitFade }}>
       {title ? (
         <div style={{
-          fontFamily: headingFont, fontSize: 16, fontWeight: 600, letterSpacing: 3,
+          fontFamily: headingFont, fontSize: 18, fontWeight: 600, letterSpacing: 3,
           color: palette.inkSoft, textTransform: "uppercase", marginBottom: 14, textAlign: "center",
         }}>
           {title}
@@ -100,7 +100,7 @@ export const ComparisonCard: React.FC<ComparisonCardProps> = ({
                 background: `${dotColor}1F`, borderRadius: 999, padding: "6px 14px", marginBottom: 16,
               }}>
                 <span style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor }} />
-                <span style={{ fontFamily: headingFont, fontSize: 18, fontWeight: 800, color: palette.ink }}>
+                <span style={{ fontFamily: headingFont, fontSize: 22, fontWeight: 800, color: palette.ink }}>
                   {col.label}
                 </span>
               </div>
@@ -152,7 +152,7 @@ export const ComparisonCard: React.FC<ComparisonCardProps> = ({
               opacity: badgePop,
             }}
           >
-            <span style={{ fontFamily: headingFont, fontSize: 16, fontWeight: 800, color: palette.bg }}>VS</span>
+            <span style={{ fontFamily: headingFont, fontSize: 18, fontWeight: 800, color: palette.bg }}>VS</span>
           </div>
         ) : null}
       </div>

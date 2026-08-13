@@ -125,7 +125,7 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
           width: 1080,
           textAlign: "center",
           fontFamily: headingFont,
-          fontSize: 30,
+          fontSize: 34,
           fontWeight: 800,
           letterSpacing: 3,
           color: ACCENT,

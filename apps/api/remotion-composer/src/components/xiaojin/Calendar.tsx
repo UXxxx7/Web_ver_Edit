@@ -112,7 +112,7 @@ export const Calendar: React.FC<CalendarProps> = ({
       <div
         style={{
           fontFamily: headingFont,
-          fontSize: 32,
+          fontSize: 38,
           fontWeight: 800,
           color: palette.ink,
           marginBottom: 20,

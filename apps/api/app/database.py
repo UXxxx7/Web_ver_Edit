@@ -123,6 +123,14 @@ class Job(Base):
 
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
+    # Human-readable current pipeline step (e.g. "Transcribing", "Removing
+    # filler words", "Rendering") — status alone (RUNNING_PIPELINE) covers
+    # the whole multi-minute pipeline with no finer signal, which is why the
+    # web UI could only show a generic "still working on it" heartbeat with
+    # no indication of real progress. Updated at each stage transition in
+    # pipeline_runner.py; None until the pipeline actually starts.
+    current_stage: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+
     # 非致命失败被跳过的操作（JSON list，如 ["apply_style"]）。Node 网关靠它
     # 在预览消息里如实告知用户"哪步没成、当前版本缺什么、可回复 retry"——
     # 此前这信息只活在管线返回值里，Python 侧的提醒又走的是死代码发送路径，
@@ -343,6 +351,9 @@ def _migrate_schema(engine) -> None:
     if "social_hashtags" not in cols:
         with engine.begin() as conn:
             conn.execute(_text("ALTER TABLE jobs ADD COLUMN social_hashtags TEXT"))
+    if "current_stage" not in cols:
+        with engine.begin() as conn:
+            conn.execute(_text("ALTER TABLE jobs ADD COLUMN current_stage VARCHAR(64)"))
 
     try:
         user_cols = {c["name"] for c in _inspect(engine).get_columns("users")}

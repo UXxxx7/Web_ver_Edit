@@ -83,7 +83,7 @@ export const StatCard: React.FC<StatCardProps> = ({
         <div
           style={{
             fontFamily: headingFont,
-            fontSize: 20,
+            fontSize: 24,
             fontWeight: 800,
             letterSpacing: 2,
             color: "#E0552F",
@@ -106,7 +106,7 @@ export const StatCard: React.FC<StatCardProps> = ({
             {label.toUpperCase()}
           </span>
           <span>
-            <span style={{ fontFamily: headingFont, fontSize: 44, fontWeight: 800, color: "#E0552F" }}>
+            <span style={{ fontFamily: headingFont, fontSize: 52, fontWeight: 800, color: "#E0552F" }}>
               {displayValue}
             </span>
             <span style={{ fontFamily: labelFont, fontSize: 18, fontWeight: 700, color: "#8A8272", marginLeft: 8 }}>

@@ -94,7 +94,7 @@ export const MilestoneUnlockCard: React.FC<MilestoneUnlockCardProps> = ({
         </svg>
       </div>
       <div style={{
-        fontFamily: headingFont, fontSize: 44, fontWeight: 900, color: palette.ink,
+        fontFamily: headingFont, fontSize: 52, fontWeight: 900, color: palette.ink,
         letterSpacing: -0.5, opacity: numberFade,
       }}>
         {prefix}{Math.round(shownValue).toLocaleString()}{suffix}

@@ -107,7 +107,7 @@ export const BudgetRevealSection: React.FC<BudgetRevealSectionProps> = ({
         <div
           style={{
             fontFamily: headingFont,
-            fontSize: 20,
+            fontSize: 24,
             fontWeight: 800,
             letterSpacing: 2,
             color: "#E0552F",
@@ -122,7 +122,7 @@ export const BudgetRevealSection: React.FC<BudgetRevealSectionProps> = ({
             <div style={{ fontFamily: labelFont, fontSize: 16, fontWeight: 700, letterSpacing: 1, color: "#8A8272", marginBottom: 6 }}>
               {leftLabel.toUpperCase()}
             </div>
-            <div style={{ fontFamily: headingFont, fontSize: 52, fontWeight: 800, color: "#2A2620", lineHeight: 1 }}>
+            <div style={{ fontFamily: headingFont, fontSize: 60, fontWeight: 800, color: "#2A2620", lineHeight: 1 }}>
               {leftPrefix}{fmt(leftAnimated, leftDecimals)}{leftSuffix}
             </div>
           </div>
@@ -135,7 +135,7 @@ export const BudgetRevealSection: React.FC<BudgetRevealSectionProps> = ({
             <div style={{ fontFamily: labelFont, fontSize: 16, fontWeight: 700, letterSpacing: 1, color: "#E0552F", marginBottom: 6 }}>
               {rightLabel.toUpperCase()}
             </div>
-            <div style={{ fontFamily: headingFont, fontSize: 52, fontWeight: 800, color: "#E0552F", lineHeight: 1 }}>
+            <div style={{ fontFamily: headingFont, fontSize: 60, fontWeight: 800, color: "#E0552F", lineHeight: 1 }}>
               {rightPrefix}{fmt(rightAnimated, rightDecimals)}{rightSuffix}
             </div>
           </div>

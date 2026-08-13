@@ -18,6 +18,7 @@ from typing import Any, Callable, Optional
 
 from .config import get_config
 from .database import Job
+from .job_manager import update_job_fields
 from . import authored as _armb  # Arm B(模型现写 composition)接线层;flag 关时零行为差异
 
 logger = logging.getLogger(__name__)
@@ -44,6 +45,24 @@ from .concurrency import (
 # 爬公开搜索页），这类拦截一般数十秒内解除，立即重试大概率还在同一个挑战窗口里。
 # （合并自 PR #39，2026-07-20）
 _MUSIC_RETRY_DELAY_S = 30
+
+# op_type -> human-readable text for Job.current_stage, shown in the web UI
+# in place of the old generic "still working on it" heartbeat (see
+# database.py's current_stage doc comment for why that was added).
+# Falls back to the raw op_type (still better than nothing) for anything
+# not listed here.
+_STAGE_LABELS = {
+    "remove_segment": "Cutting out a section",
+    "remove_filler": "Removing filler words",
+    "remove_silences": "Trimming silences",
+    "trim_leading_silence": "Trimming the opening",
+    "reframe": "Reframing",
+    "color_grade": "Color grading",
+    "insert_broll": "Inserting b-roll",
+    "apply_style": "Applying the visual style (this step takes longest)",
+    "add_subtitles": "Burning in subtitles",
+    "add_music": "Adding background music",
+}
 
 
 def run_talking_head_pipeline(job: Job) -> dict[str, Any]:
@@ -125,6 +144,7 @@ def run_talking_head_pipeline(job: Job) -> dict[str, Any]:
             logger.warning(f"  跳过不支持的操作: {op_type}")
             continue
         logger.info(f"  执行操作: {op_type}")
+        update_job_fields(job.id, current_stage=_STAGE_LABELS.get(op_type, op_type))
         before = _probe_duration(Path(src))
         try:
             new_src = handler(src, op, job_dir)
@@ -155,6 +175,7 @@ def run_talking_head_pipeline(job: Job) -> dict[str, Any]:
 
     if subtitle_op is not None:
         logger.info("  执行操作: add_subtitles")
+        update_job_fields(job.id, current_stage=_STAGE_LABELS["add_subtitles"])
         new_src = _op_add_subtitles(src, subtitle_op, job_dir)
         if new_src and Path(new_src).exists():
             src = str(new_src)
@@ -162,6 +183,7 @@ def run_talking_head_pipeline(job: Job) -> dict[str, Any]:
 
     if music_op is not None:
         logger.info("  执行操作: add_music")
+        update_job_fields(job.id, current_stage=_STAGE_LABELS["add_music"])
         try:
             new_src = _op_add_music(src, music_op, job_dir)
         except Exception as e:
@@ -1433,25 +1455,18 @@ def _op_add_subtitles(src: str, op: dict, workdir: Path) -> Optional[str]:
 # reasons about WHEN to be in which mode (dominant vs workflow), and (P3) how
 # WIDE the on-screen content is at that moment; the actual pixel box a mode
 # maps to is a rendering-layer concern, not a planning one.
-_DOMINANT_BOX = {"x": 60, "y": 104, "w": 960, "h": 1100}
-# Docked/side-pip geometry (content_width-dependent x/w narrowing) is gone —
-# confirmed real user complaint against that whole model: shrinking WIDTH and
-# docking the card to a side column leaves the entire opposite side and the
-# whole lower half of the canvas empty, with only faint atmosphere text to
-# fill it. video-studio's own validated reference (motion/vell-renewal-fresh's
-# RenewalFresh/SpeakerCard.tsx) does the opposite: the card stays FULL WIDTH,
-# anchored top-left at the exact same x/w as Dominant, and only HEIGHT shrinks
-# — freeing up a full-width band BELOW the card (RenewalFresh's own
-# CoverageSection.tsx: `CONTENT_TOP = 1040`, `left:40, right:40`) for content
-# to stack into, rather than a narrow side column beside it. Adopting that
-# model verbatim: Workflow keeps Dominant's x/w unchanged, only h differs, so
-# the card doesn't even move horizontally on the Dominant<->Workflow
-# transition — a pure vertical squeeze.
-# h=900, straight from the reference (RenewalFresh WORKFLOW = 1000x900): at
-# 960px wide the objectFit:cover crop is WIDTH-bound, so a shorter box shows
-# LESS of the speaker vertically, not a smaller card — h=700 was a confirmed
-# real bug that cropped the speaker to head-only. 900 shows face + chest.
-_WORKFLOW_BOX = {"x": 60, "y": 104, "w": 960, "h": 900}
+# 视频作背景（2026-08-12 品牌改版 v2 — 纠正版）：不是"平时小卡片、intro 才
+# 全出血"，而是反过来——默认状态本来就是视频铺满全屏、图形直接叠加在画面上
+# （没有单独背景可言，因为视频本身就是背景）；只有真正的大图形需要整个画布
+# 时（SectionLayer 的全画布接管），画面才让位、格纹背景才出现。之前那版只
+# 把这个待遇给了 intro 标题那 ~2.7s，Dominant/Workflow 平时仍是旧模型的小盒
+# 子+格纹底——不是用户要的效果，见 pipeline_runner.py 顶部这次改版前的讨论。
+# Dominant 和 Workflow 现在是同一个矩形：全出血、chrome="none"。两者不再需要
+# 几何上的区分——区别只在于 Workflow 期间内容区有没有图形叠加在视频上，跟卡
+# 片本身的位置/尺寸/边框完全无关。_insert_transition_holds 那套按尺寸变化判
+# 断"卡片是否在过渡"的逻辑现在天然是 no-op（两个框永远相等），不用单独改。
+_DOMINANT_BOX = {"x": 0, "y": 0, "w": 1080, "h": 1920, "chrome": "none"}
+_WORKFLOW_BOX = {"x": 0, "y": 0, "w": 1080, "h": 1920, "chrome": "none"}
 # Content zone directly below the Workflow card — full card width, starting
 # just under its bottom edge (104+900=1004, +36px gap=1040 — the reference's
 # own CONTENT_TOP). content_planner.py's data-display defaults must match
@@ -1958,7 +1973,15 @@ _PROPS_LINT_MAX_ATTEMPTS = 3
 # 33 分钟。这个预算不改变任何质量判断标准——每一轮该跑的检查一次不少——只是
 # 给"还要不要再等一轮 LLM"这件事设一个总时长上限，超了就直接走本来就有的
 # best-of 交付（正常轮数用尽时也是同一条路径），不是新的降级逻辑。
-_APPLY_STYLE_CONTENT_DEADLINE_S = int(os.getenv("OM_APPLY_STYLE_CONTENT_DEADLINE_S", "720"))
+#
+# Was 720s (12min) — confirmed too generous on its own (2026-08-13): with a
+# real ~1-3min transcription step and a ~5-8min render step, a 12-minute
+# content-planning budget alone could already blow past the user's whole
+# 10-15min patience window before the video even starts rendering. 300s (5min)
+# leaves real headroom for the other two stages while still giving the
+# refine loop several genuine rounds when DeepSeek is behaving normally
+# (each round is typically well under 60s when the API isn't degraded).
+_APPLY_STYLE_CONTENT_DEADLINE_S = int(os.getenv("OM_APPLY_STYLE_CONTENT_DEADLINE_S", "300"))
 
 # 参与"丰富度"计分的 props 字段——每一项都是真正的动画/图形，不是纯文字。
 _RICHNESS_FIELDS = (
@@ -2731,6 +2754,9 @@ def _op_apply_style(src: str, op: dict, workdir: Path) -> Optional[str]:
                     continue
                 mode_schedule.append(m)
             props["scenes"], speaker_opacity = _mode_schedule_to_scenes(mode_schedule)
+            # 视频作背景现在是 Dominant/Workflow 的默认几何本身（_DOMINANT_BOX/
+            # _WORKFLOW_BOX 都已是全出血+chrome="none"），intro 期间不再需要单独
+            # 处理——它跟其余时间用的是同一套框。
             if speaker_opacity:
                 props["opacityKeyframes"] = speaker_opacity
             else:

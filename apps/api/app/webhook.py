@@ -728,6 +728,12 @@ async def get_job_endpoint(job_id: str):
         "final_path": job.final_path,
         "planned_edit": json.loads(job.planned_edit) if job.planned_edit else None,
         "error_message": job.error_message,
+        # Human-readable current pipeline step ("Transcribing", "Rendering",
+        # etc.) — RUNNING_PIPELINE alone covers the whole multi-minute
+        # pipeline with no finer signal, so the web UI could only show a
+        # generic "still working on it" heartbeat with no real progress
+        # indication. None until the pipeline actually starts.
+        "current_stage": job.current_stage,
         # Node 侧回复用户的文案要按这条任务的语言走（不能写死英文/中文），
         # edit_request 是用户自己敲的原话，是最可靠的语言信号——之前没往外
         # 暴露，Node 只能瞎猜或者写死一种语言。

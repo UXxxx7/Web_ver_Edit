@@ -68,7 +68,7 @@ export const ProgressBarCard: React.FC<ProgressBarCardProps> = ({
     >
       {title ? (
         <div style={{
-          fontFamily: headingFont, fontSize: 16, fontWeight: 600, letterSpacing: 3,
+          fontFamily: headingFont, fontSize: 18, fontWeight: 600, letterSpacing: 3,
           color: palette.inkSoft, textTransform: "uppercase", marginBottom: 18,
         }}>
           {title}
@@ -78,7 +78,7 @@ export const ProgressBarCard: React.FC<ProgressBarCardProps> = ({
         <span style={{ fontFamily: labelFont, fontSize: 22, fontWeight: 600, color: palette.ink }}>
           {label}
         </span>
-        <span style={{ fontFamily: headingFont, fontSize: 30, fontWeight: 800, color: palette.accent }}>
+        <span style={{ fontFamily: headingFont, fontSize: 34, fontWeight: 800, color: palette.accent }}>
           {shownPct}%
         </span>
       </div>

@@ -87,7 +87,7 @@ export const StatsHookIntro: React.FC<StatsHookIntroProps> = ({
       <span
         style={{
           fontFamily: headingFont,
-          fontSize: 128,
+          fontSize: 148,
           fontWeight: 800,
           color: "#FFFFFF",
           lineHeight: 1.0,

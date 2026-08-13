@@ -81,7 +81,7 @@ export const QuoteCard: React.FC<QuoteCardProps> = ({
     >
       <span
         style={{
-          fontFamily: headingFont, fontSize: 120, fontWeight: 800, lineHeight: 0.6,
+          fontFamily: headingFont, fontSize: 138, fontWeight: 800, lineHeight: 0.6,
           color: palette.accent, opacity: markEntry * 0.9,
           transform: `scale(${0.7 + markEntry * 0.3})`, marginBottom: 18,
         }}

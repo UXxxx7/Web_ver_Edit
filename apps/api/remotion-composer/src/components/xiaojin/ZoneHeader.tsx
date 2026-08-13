@@ -64,7 +64,7 @@ export const ZoneHeader: React.FC<ZoneHeaderProps> = ({
         transform: `translateY(${(1 - enter) * 14}px)`,
       }}
     >
-      <div style={{ fontFamily: headingFont, fontSize: 42, fontWeight: 800, color: palette.ink, lineHeight: 1.1 }}>
+      <div style={{ fontFamily: headingFont, fontSize: 48, fontWeight: 800, color: palette.ink, lineHeight: 1.1 }}>
         {title}
       </div>
       {titleEn ? (

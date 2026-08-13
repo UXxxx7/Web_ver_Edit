@@ -87,7 +87,7 @@ import { MilestoneTrackCard, MilestoneTrackCardProps } from "./components/xiaoji
 import { TrustBadgeCard, TrustBadgeCardProps } from "./components/xiaojin/TrustBadgeCard";
 import { BarChartCard, BarChartCardProps } from "./components/xiaojin/BarChartCard";
 import { MilestoneUnlockCard, MilestoneUnlockCardProps } from "./components/xiaojin/MilestoneUnlockCard";
-import { ColorMode } from "./components/xiaojin/theme";
+import { ColorMode, PALETTES } from "./components/xiaojin/theme";
 
 export interface ComplianceInfo {
   agentNameZh: string;
@@ -385,7 +385,7 @@ export const XiaojinEditorial: React.FC<XiaojinEditorialProps> = (rawProps) => {
     headingFont = _defaultHeadingFont,
     labelFont = _defaultLabelFont,
   } = props;
-  const bg = colorMode === "warm" ? "#F2EBE0" : "#0D1117";
+  const bg = PALETTES[colorMode].bg;
 
   // Deliberately called here, not at module scope: getRemotionEnvironment()
   // only reports isPlayer correctly once <Player>'s own component body has
