@@ -1,0 +1,23 @@
+# 统一换行符为 LF，杜绝 Windows 上 CRLF 混入导致的「整文件都显示改动」噪音 diff。
+# 首次落地后跑一次 `git add --renormalize .` 把现有文件也归一化。
+* text=auto eol=lf
+
+# 二进制文件不做换行符转换。
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.webp  binary
+*.mp4   binary
+*.mov   binary
+*.mp3   binary
+*.wav   binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.otf   binary
+
+# 锁文件由工具生成，标记为 linguist 生成物（GitHub diff 里默认折叠）。
+package-lock.json linguist-generated=true
+uv.lock           linguist-generated=true

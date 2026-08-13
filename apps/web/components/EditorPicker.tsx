@@ -22,21 +22,16 @@ async function openEditorFor(jobId: string, setError: (e: string | null) => void
 }
 
 export function EditorPicker() {
-  // Lazy initializer covers the "nothing to fetch" case synchronously, so
-  // the effect only ever calls setJobs from its async .then() — calling
-  // setState directly in an effect body (the old ids.length === 0 branch)
-  // trips react-hooks/set-state-in-effect (cascading-render risk).
-  const [jobs, setJobs] = useState<{ id: string; job: EditJob | null }[] | null>(
-    () => (getRecentJobs().length === 0 ? [] : null)
-  );
+  const [jobs, setJobs] = useState<{ id: string; job: EditJob | null }[] | null>(null);
   const [manualId, setManualId] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const ids = getRecentJobs();
-    if (ids.length === 0) return;
+    // Promise.all([]) resolves to [] on the microtask queue, so the empty
+    // case also sets state asynchronously — avoids a synchronous setState in
+    // the effect body (eslint react-hooks/set-state-in-effect).
     Promise.all(
-      ids.map(async (id) => {
+      getRecentJobs().map(async (id) => {
         const r = await getEditJobStatus(id);
         return { id, job: r.ok ? r.data : null };
       })
