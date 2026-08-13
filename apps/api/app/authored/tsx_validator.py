@@ -328,10 +328,14 @@ def _check_manifest_geometry_unwired(src: str, manifest: list) -> list:
 
 # ─────────────────────────── cuts 契约观测(Phase 8 · 中途剪切)───────────────────────────
 
-# 匹配 <OffthreadVideo ...> 整个开标签(用有界窗口而不是贪婪 [^>]*,防止标签
-# 内某个 JSX 表达式自带的 `>`——如 style={{opacity: x > 0.5 ? 1 : 0}}——把扫描
-# 提前截断)。400 字符足够覆盖真实场景里这个标签常见的属性数量。
-_OFFTHREAD_VIDEO_TAG_RE = re.compile(r"<OffthreadVideo\b[\s\S]{0,400}?(?:/>|>)")
+# 匹配 <OffthreadVideo ...> 或 <Video ...> 整个开标签(用有界窗口而不是贪婪
+# [^>]*,防止标签内某个 JSX 表达式自带的 `>`——如
+# style={{opacity: x > 0.5 ? 1 : 0}}——把扫描提前截断)。400 字符足够覆盖
+# 真实场景里这个标签常见的属性数量。两个标签名都要抓:提示词第 4 条只点名
+# OffthreadVideo,但真实复现过(job_a45cd45154ce)LLM 在 revise 轮换成了
+# `<Video src={videoSrc}>`——同一个 bug,换了一个 Remotion 组件名字而已,
+# 只认 OffthreadVideo 会漏放这种情况过去。
+_OFFTHREAD_VIDEO_TAG_RE = re.compile(r"<(?:OffthreadVideo|Video)\b[\s\S]{0,400}?(?:/>|>)")
 # base 视频的 src 只可能是 videoSrc 这个变量名(冻结提示第 4 条钦定的唯一名字)
 # ——直接写字面量 props.videoSrc,或先 `const { videoSrc } = props` 解构再引用。
 _VIDEO_SRC_ATTR_RE = re.compile(r"\bsrc\s*=\s*\{\s*(?:props\s*\.\s*)?videoSrc\s*\}")
@@ -340,25 +344,28 @@ _VIDEO_SRC_ATTR_RE = re.compile(r"\bsrc\s*=\s*\{\s*(?:props\s*\.\s*)?videoSrc\s*
 def _check_base_video_rendered_by_scene(src: str) -> list:
     """冻结提示第 4 条(scene_author.py,mid-video 剪切改动)——AI 写的场景不再
     自己渲染 base 视频,AuthoredCutWrapper 在场景外面渲染,场景只画 overlay。
-    这条检查扫场景自己的 JSX 里是否还有 `<OffthreadVideo src={videoSrc}>`
-    (或 `src={props.videoSrc}`)——真出现意味着这个场景两份视频重叠播放(wrapper
-    的 + 场景自己的),剪切功能对这个场景完全没用(它自己的视频永远整段播放,
-    不听 sourceFrame)。
+    这条检查扫场景自己的 JSX 里是否还有 `<OffthreadVideo src={videoSrc}>` /
+    `<Video src={videoSrc}>`(或 `src={props.videoSrc}`)。
 
-    仅供观测(ValidationResult.advisory,不参与 ok 判定)——跟
-    manifest_geometry_unwired 同一个理由:这是一条全新的契约要求,真实历史
-    达标率未知,做成硬性门槛只会在模型还没学会遵守之前,把"剪切对这个场景
-    不生效"这种局部退化,升级成 compose_orchestrator.compose() 收口规则下
-    "整支 Arm B 直接跳车回 Arm A"的更严重后果。"""
+    HARD violation,不是 advisory(2026-08-13 从 advisory 升级)——这条检查
+    刚加进来时(#5)还只做观测,理由是"不知道真实达标率,怕硬门槛在模型学会
+    遵守之前把局部退化升级成整支回落 Arm A"。这个假设已经被真实复现推翻了
+    (job_a45cd45154ce,#5 合并后):命中这条不是"看得到但剪切用不了"这种
+    局部退化,是 Remotion 真实渲染直接崩溃(两个视频元素同时请求同一个
+    src,实测复现,不是猜测)——两轮 revise 都没能自己改对(第一轮用
+    OffthreadVideo,第二轮换成 Video,同一个 bug 换了个组件名字),最终整单
+    落回 Arm A。放着不管,结果反正是崩,不如在这里(便宜的静态检查阶段)就
+    拦下来逼一次 revise,好过先烧一次真实渲染确认了会崩才修。"""
     violations: list[Violation] = []
     stripped = _strip_strings_and_comments(src)
     for m in _OFFTHREAD_VIDEO_TAG_RE.finditer(stripped):
         if _VIDEO_SRC_ATTR_RE.search(m.group(0)):
             violations.append(Violation(
                 "base_video_rendered_by_scene",
-                "场景自己渲染了 <OffthreadVideo src={videoSrc}>——base 视频现在应该"
-                "由 AuthoredCutWrapper 在场景外面渲染,场景只画 overlay;这个场景"
-                "如果留着自己的 base 视频,中途剪切对它不会有任何效果",
+                "场景自己渲染了 base 视频(<OffthreadVideo src={videoSrc}> 或 "
+                "<Video src={videoSrc}>)——base 视频现在应该由 AuthoredCutWrapper "
+                "在场景外面渲染,场景只画 overlay;留着自己的 base 视频不只是"
+                "剪切失效那么轻——两个视频元素抢同一个 src 会让真实渲染直接崩溃",
                 _line_of(stripped, m.start())))
     return violations
 
@@ -451,7 +458,21 @@ def validate_tsx(src: str, run_compile_probe: bool = True,
 
     # cuts 契约观测——跟 manifest 无关,不需要 manifest is not None 才跑
     # (每次调用都跑;跟 manifest_incomplete 的空清单陷阱不是同一类问题)。
-    advisory.extend(_check_base_video_rendered_by_scene(src))
+    #
+    # base_video_rendered_by_scene 从 advisory 升级为硬 violation(2026-08-13)
+    # ——这条检查加进来的时候(#5)还只是观测性的,理由（见
+    # _check_base_video_rendered_by_scene 自己的旧注释）是"不知道真实达标率,
+    # 做成硬门槛怕在模型还没学会遵守之前，把局部退化升级成整支回落 Arm A"。
+    # 现在有真实数据了：真实复现过(job_a45cd45154ce,#5 合并后)——命中这条的
+    # 场景不是"能看但剪切用不了"这种局部退化，是**渲染直接崩溃、两轮 revise
+    # 都救不回来、最终整单落回 Arm A**（两个视频元素同时请求同一个 src 让
+    # Remotion 的真实渲染直接报错，不是猜测，是实测复现）。软性 advisory 的
+    # 顾虑本身建立在"后果只是局部退化"这个假设上，这个假设已经被推翻——放着
+    # 不管命中的每一单最终都会崩，不如在便宜的验证阶段就拦下来，逼一次
+    # revise，而不是先烧一次真实渲染确认了会崩才修。source_frame_unused 留在
+    # advisory：那条是粗粒度启发式,自己的注释也承认"不做数据流分析、可能
+    # 误报",没有同等程度的实测撑腰,不跟着升级。
+    violations.extend(_check_base_video_rendered_by_scene(src))
     advisory.extend(_check_source_frame_not_used(src))
 
     for v in advisory:
