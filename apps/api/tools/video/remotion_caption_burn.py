@@ -35,6 +35,7 @@ import math
 import re
 import shutil
 import time
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -303,10 +304,23 @@ class RemotionCaptionBurn(BaseTool):
         width = int(dim_parts[0])
         height = int(dim_parts[1])
 
-        # Copy video to Remotion public folder
+        # Copy video to Remotion public folder — filename MUST be unique per
+        # call, not just per input basename. Every job's input video is
+        # named identically (`input.mp4`, see database.py's Job.input_path
+        # property), so `Path(input_path).name` alone collided across every
+        # job that ever ran through this tool: concurrent/sequential runs
+        # clobbered public/talking-head/input.mp4 and
+        # public/demo-props/caption-burn-input.json out from under each
+        # other (found live, 2026-08-13 — a single test job overwrote the
+        # repo's own committed demo/template assets with that job's real
+        # data, `git status` showed them modified). `Path(input_path).parent.name`
+        # is the job_id (input_path is always `{job_dir}/input.mp4`) — cheap,
+        # deterministic, and keeps the staged filename traceable back to
+        # the job that produced it, unlike a random uuid.
+        job_tag = Path(input_path).parent.name or uuid.uuid4().hex[:12]
         pub_dir = root / "public" / "talking-head"
         pub_dir.mkdir(parents=True, exist_ok=True)
-        video_filename = Path(input_path).name
+        video_filename = f"{job_tag}_{Path(input_path).name}"
         dest_video = pub_dir / video_filename
         shutil.copy2(input_path, dest_video)
 
@@ -321,7 +335,7 @@ class RemotionCaptionBurn(BaseTool):
         }
         props_dir = root / "public" / "demo-props"
         props_dir.mkdir(parents=True, exist_ok=True)
-        props_file = props_dir / f"caption-burn-{Path(input_path).stem}.json"
+        props_file = props_dir / f"caption-burn-{job_tag}.json"
         props_file.write_text(json.dumps(props, indent=2), encoding="utf-8")
 
         # Render (use npx.cmd on Windows for subprocess compatibility)
