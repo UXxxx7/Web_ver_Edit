@@ -35,6 +35,8 @@ const DICT = {
     pending: "註冊緊…",
     hasAccount: "已經有帳戶？",
     signin: "登入",
+    agree: "繼續即代表你同意我哋嘅",
+    and: "同",
   },
   en: {
     title: "Create an account",
@@ -49,6 +51,8 @@ const DICT = {
     pending: "Creating account…",
     hasAccount: "Already have an account?",
     signin: "Sign in",
+    agree: "By continuing, you agree to our",
+    and: "and",
   },
 } satisfies Record<Lang, unknown>;
 
@@ -111,6 +115,12 @@ export function SignupForm({ lang }: { lang: Lang }) {
             {pending ? t.pending : t.submit}
           </Button>
         </form>
+        <p className="mt-3 text-center text-xs text-muted-foreground">
+          {t.agree}{" "}
+          <Link href="/terms" className="underline hover:text-foreground">{lang === "zh" ? "服務條款" : "Terms of Service"}</Link>{" "}
+          {t.and}{" "}
+          <Link href="/privacy" className="underline hover:text-foreground">{lang === "zh" ? "私隱政策" : "Privacy Policy"}</Link>.
+        </p>
         <p className="mt-5 text-center text-sm text-muted-foreground">
           {t.hasAccount}{" "}
           <Link href="/login" className="font-medium text-primary hover:underline">
