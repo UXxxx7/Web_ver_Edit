@@ -27,13 +27,11 @@ export function EditorPicker() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const ids = getRecentJobs();
-    if (ids.length === 0) {
-      setJobs([]);
-      return;
-    }
+    // Promise.all([]) resolves to [] on the microtask queue, so the empty
+    // case also sets state asynchronously — avoids a synchronous setState in
+    // the effect body (eslint react-hooks/set-state-in-effect).
     Promise.all(
-      ids.map(async (id) => {
+      getRecentJobs().map(async (id) => {
         const r = await getEditJobStatus(id);
         return { id, job: r.ok ? r.data : null };
       })
