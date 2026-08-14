@@ -6,7 +6,7 @@ import type { SaveState } from "../Toolbar";
  * confirmed bug in the desktop Toolbar at phone widths: that bar is a
  * non-wrapping flex row whose min-content (~480px) exceeds a 390px
  * viewport, with `body { overflow: hidden }` making the overflow
- * unreachable — "Save & send to WhatsApp" could be clipped off-screen
+ * unreachable — "Export" could be clipped off-screen
  * entirely. This bar uses `flex-wrap` and keeps Save in its own
  * always-fits row, so it is never the thing that gets pushed off.
  *
@@ -111,10 +111,10 @@ export function PhoneTopBar({
           title={
             outOfSaves ? "Hourly render limit reached — try again later"
               : !isDirty ? "No changes to save"
-              : "Render your edits and send the new preview to WhatsApp"
+              : "Render your edits"
           }
         >
-          {busy ? "Working…" : "Save & send"}
+          {busy ? "Working…" : "Export"}
         </button>
       </div>
     </div>

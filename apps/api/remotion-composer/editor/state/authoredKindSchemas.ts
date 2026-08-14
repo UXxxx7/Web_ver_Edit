@@ -66,6 +66,13 @@ export const KIND_LABEL: Record<ManifestElement["kind"], string> = {
   broll_window: "B-roll window",
 };
 
+/** Structural/geometry keys every ManifestElement carries that are never
+ *  themselves an editable CONTENT field — see the type's own field comments
+ *  in authoredHitTest.ts. Used to separate a recovered element's real
+ *  content fields (whatever recoverManifest.ts's regex-scan actually found)
+ *  from its bookkeeping ones. */
+const STRUCTURAL_KEYS = new Set(["id", "kind", "layer", "x", "y", "w", "h", "mountFrame", "endFrame", "recovered"]);
+
 /**
  * A `recovered` element (see state/recoverManifest.ts) was synthesized from
  * ids the scene reads via `overrides?.[id]?.field` but that the server's
@@ -73,12 +80,34 @@ export const KIND_LABEL: Record<ManifestElement["kind"], string> = {
  * geometry, because 0 of 18 real generated scenes read position/size from
  * overrides at all. Strip those fields from the schema entirely rather than
  * show a drag/resize control that would silently do nothing.
+ *
+ * Its CONTENT fields are ALSO not one of the 4 fixed per-kind shapes below —
+ * those assume a server-authored manifest.json using the "text" / "headline"
+ * + "value" / "src" + "label" convention non-recovered elements follow. A
+ * real scene's recovered card can have any field names at all (confirmed:
+ * a 14-field terminal-mockup card with title/subtitle/command/line1-3/
+ * node1-4/... none matching any KIND_SCHEMAS shape), so KIND_SCHEMAS'
+ * `required: ["text"]` (etc.) failed validation on every one of them even
+ * though the fields were genuinely present, just under different names —
+ * and none of those real fields ever got an input rendered at all. Build
+ * the schema from what recovery actually found on `el` instead of guessing
+ * which fixed template it should have been.
  */
 export function schemaForElement(el: ManifestElement): JSONSchema {
-  const base = KIND_SCHEMAS[el.kind];
-  if (!el.recovered) return base;
-  const { x: _x, y: _y, w: _w, h: _h, ...rest } = base.properties || {};
-  return { ...base, properties: rest };
+  if (el.recovered) {
+    const properties: Record<string, JSONSchema> = {
+      mountFrame: { type: "integer", minimum: 0 },
+      endFrame: { type: "integer", minimum: 0 },
+    };
+    const required: string[] = [];
+    for (const key of Object.keys(el)) {
+      if (STRUCTURAL_KEYS.has(key)) continue;
+      properties[key] = typeof el[key] === "number" ? { type: "number" } : { type: "string", maxLength: 200 };
+      required.push(key);
+    }
+    return { type: "object", required, properties };
+  }
+  return KIND_SCHEMAS[el.kind];
 }
 
 export function contentDefaults(el: ManifestElement): Record<string, unknown> {

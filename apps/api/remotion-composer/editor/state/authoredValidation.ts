@@ -8,6 +8,7 @@
 import Ajv2020, { type ErrorObject } from "ajv/dist/2020";
 import manifestSchema from "../../../contracts/authored_manifest.schema.json";
 import type { ManifestElement } from "./authoredHitTest";
+import { schemaForElement } from "./authoredKindSchemas";
 
 const ajv = new Ajv2020({ allErrors: true, strict: false });
 
@@ -26,6 +27,31 @@ const kindValidators: Record<ManifestElement["kind"], ReturnType<typeof ajv.comp
   image_swap: ajv.compile(KIND_DEF.image_swap),
   broll_window: ajv.compile(KIND_DEF.broll_window),
 };
+
+// A recovered element's real content fields are whatever recoverManifest.ts's
+// source-scan actually found on it (see authoredKindSchemas.ts's own
+// schemaForElement doc comment) — not one of the 4 fixed KIND_DEF shapes
+// above, which assume a server-authored manifest.json's "text" / "headline"
+// + "value" / "src" convention. Validating a recovered element against the
+// wrong fixed shape is exactly what produced "must have required property
+// 'text'" on every recovered element regardless of its actual fields (a
+// confirmed real bug, 2026-08-14) — reuse the SAME dynamic schema the
+// Inspector form already renders from, so what's editable and what's
+// validated never disagree. Cached by schema shape (stable per element
+// unless its field set changes) so this doesn't recompile an AJV validator
+// on every render.
+const recoveredValidatorCache = new Map<string, ReturnType<typeof ajv.compile>>();
+function validatorFor(el: ManifestElement): ReturnType<typeof ajv.compile> {
+  if (!el.recovered) return kindValidators[el.kind];
+  const schema = schemaForElement(el);
+  const key = JSON.stringify(schema);
+  let v = recoveredValidatorCache.get(key);
+  if (!v) {
+    v = ajv.compile(schema);
+    recoveredValidatorCache.set(key, v);
+  }
+  return v;
+}
 
 const NATIVE_W = 1080;
 const NATIVE_H = 1920;
@@ -68,7 +94,7 @@ export function validateAuthored(
   for (const el of manifest) {
     const value = effectiveValues[el.id] || {};
 
-    const validate = kindValidators[el.kind];
+    const validate = validatorFor(el);
     if (!validate(value)) {
       for (const err of validate.errors || []) {
         errors.push({ id: el.id, field: fieldNameFromError(err), message: err.message || "Invalid value." });

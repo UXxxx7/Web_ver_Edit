@@ -739,6 +739,39 @@ def revise_authored_plan(job, feedback: str) -> dict | None:
 
 # ─────────────────────────── 主入口 ───────────────────────────
 
+# scene_author.py's AUTHORING_SYSTEM_PROMPT rule 6b (EDITABILITY) asks the
+# first-pass authoring call to wire every graphic beat's content + on-screen
+# window through props.overrides — but that instruction competes with 8
+# other rules in the same prompt and is confirmed NOT reliably followed on a
+# fresh generation (real test, 2026-08-14: a job authored well after rule 6b
+# existed still came back with zero overrides reads). A single FOCUSED
+# revision call — editability as the ENTIRE instruction, nothing else
+# competing for the model's attention — was confirmed reliable in manual
+# testing on a real job (59 overrides reads added, validated, rendered
+# clean). _retrofit_editability_notes below is that same instruction,
+# always run once after compose() settles — see _compose_authored_inner.
+_RETROFIT_EDITABILITY_NOTES = (
+    "This scene renders correctly. Check whether every graphic beat's real "
+    "content (headline text, card body text, any label) is read from "
+    "props.overrides, and whether each beat's on-screen window (when it "
+    "mounts, when it's gone) is read from props.overrides via the exact "
+    "field names mountFrame/endFrame. This check applies EQUALLY to any "
+    "fixed lookup array of phrase/lower-third text (e.g. a PHRASES-style "
+    "const array of {startFrame, endFrame, prefix, highlight, suffix} or "
+    "similar driving on-screen captions/lower-thirds) — go through it entry "
+    "by entry, not just the visually distinct 'cards'. If everything is "
+    "already wired this way, make NO changes at all and return the file "
+    "byte-for-byte unchanged. If any graphic beat's content or window, OR "
+    "any entry in a phrase/lower-third table, is still a hardcoded literal, "
+    "wire ONLY that piece through "
+    '(props.overrides?.["<id>"]?.<field> as string) ?? "<original text>" '
+    "(as number for mountFrame/endFrame), using a distinct short stable id "
+    "per beat or per phrase-table entry. Do NOT change layout, animation "
+    "easing, colors, or add/remove any beat — this is purely adding missing "
+    "overrides wiring on top of what already works."
+)
+
+
 def compose_authored(job) -> dict | None:
     try:
         return _compose_authored_inner(job)
@@ -822,8 +855,33 @@ def _compose_authored_inner(job) -> dict | None:
         logger.warning(f"ArmB: 未出片(status={rep.status}),落穿 Arm A")
         return None
 
+    # Editability retrofit (see _RETROFIT_EDITABILITY_NOTES's own comment) —
+    # always attempted, never allowed to block delivery: any failure at any
+    # step (LLM call, validation, render) just keeps compose()'s own winning
+    # result, exactly as if this block didn't run.
+    final_tsx, final_mp4 = rep.tsx, rep.mp4
+    try:
+        retrofit = revise_scene(rep.tsx, [], ctx, _RETROFIT_EDITABILITY_NOTES)
+        if retrofit.ok and retrofit.tsx.strip():
+            rv = validate_tsx(retrofit.tsx)
+            if getattr(rv, "ok", False):
+                rr = render_fn(retrofit.tsx)
+                if rr.ok and rr.out_path:
+                    final_tsx, final_mp4 = retrofit.tsx, rr.out_path
+                    logger.info(
+                        f"ArmB: editability 补丁渲染成功"
+                        f"({retrofit.tsx.count('overrides?.[')} 处 overrides 读取)")
+                else:
+                    logger.warning(f"ArmB: editability 补丁渲染失败,保留原片: {(rr.log_tail or '')[-300:]}")
+            else:
+                logger.warning("ArmB: editability 补丁未过 M1 校验,保留原片")
+        else:
+            logger.warning(f"ArmB: editability 补丁调用失败,保留原片: {retrofit.error}")
+    except Exception as e:  # noqa: BLE001 —— 补丁阶段绝不炸主流程,失败=保留原片
+        logger.warning(f"ArmB: editability 补丁异常,保留原片: {type(e).__name__}: {e}")
+
     preview = job_dir / "preview.mp4"
-    shutil.copyfile(rep.mp4, preview)
+    shutil.copyfile(final_mp4, preview)
     # webhook.py's editor_get_authored (manual editor "open" for an Arm B
     # job) reads a plain authored/scene.tsx — this compose loop only ever
     # wrote numbered revision files (scene_r1.tsx, scene_r2.tsx, ...), so
@@ -831,8 +889,34 @@ def _compose_authored_inner(job) -> dict | None:
     # 2026-08-14: live 404s in the API log for /api/editor/{id}/authored).
     # rep.tsx is the winning revision's source — write it out under the
     # plain name the editor actually looks for.
-    if rep.tsx:
-        (out_dir / "scene.tsx").write_text(rep.tsx, encoding="utf-8")
+    if final_tsx:
+        (out_dir / "scene.tsx").write_text(final_tsx, encoding="utf-8")
+    # Same gap as scene.tsx above, one level deeper: editor_get_authored also
+    # reads authored/props.json for videoSrc/broll/words (falls back to {}
+    # when absent — confirmed live: videoSrc came back as "" for a real job,
+    # crashing the editor's React tree with "Cannot read properties of
+    # undefined (reading 'length')" and a blank black screen). The render
+    # path's own props.json lives in a per-render temp workspace under
+    # remotion-composer/src/.armb/<token>/ that gets deleted right after
+    # rendering (keep_workspace=False) — nothing ever persisted an
+    # editor-readable copy. Paths here are job_dir-relative (what
+    # editor_get_authored's _rewrite_asset_url expects), NOT the
+    # remotion-composer-public-relative paths the temp render copy used.
+    fps = 30
+    (out_dir / "props.json").write_text(json.dumps({
+        "videoSrc": str(input_video.relative_to(job_dir)),
+        "broll": [
+            {**b, "src": str(Path(b["src"]).relative_to(job_dir))
+                  if Path(b["src"]).is_relative_to(job_dir) else b["src"]}
+            for b in (broll or [])
+        ],
+        "words": words,
+        "fps": fps,
+        "durationInFrames": max(1, round(duration * fps)),
+        "width": 1080, "height": 1920,
+        "videoCuts": [],
+        "overrides": {},
+    }, ensure_ascii=False), encoding="utf-8")
     logger.info(f"=== ArmB 出片: {job.id} → {preview} "
                 f"(status={rep.status}, rounds={rep.rounds}, cost=${rep.cost_usd:.4f}) ===")
     # 返回与 Arm A 主返回同构的关键字段;验收时如发现下游还消费其它键,在此补齐
