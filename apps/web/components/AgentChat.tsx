@@ -308,7 +308,7 @@ export function AgentChat() {
             return (
               <div key={msg.id} className="msg from-bot">
                 <div className="bubble">
-                  {msg.kind === "text" ? msg.text : <AgentJobBubble job={msg.job} onUpdate={(job) => updateJobMessage(msg.id, job)} onHeartbeat={pushBotText} />}
+                  {msg.kind === "text" ? msg.text : <AgentJobBubble job={msg.job} onUpdate={(job) => updateJobMessage(msg.id, job)} />}
                 </div>
               </div>
             );
@@ -409,6 +409,6 @@ export function AgentChat() {
 // fields being empty is harmless; replaced by the real job within one round trip.
 const PENDING_JOB: EditJob = {
   job_id: "", status: "RECEIVED", input_video_path: null, preview_path: null, final_path: null,
-  planned_edit: null, error_message: null, edit_request: "", degraded_operations: [],
+  planned_edit: null, error_message: null, current_stage: null, edit_request: "", degraded_operations: [],
   generation_cost_usd: 0, pipeline: "talking-head", created_at: null, updated_at: null,
 };

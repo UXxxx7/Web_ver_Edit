@@ -275,10 +275,10 @@
 .gen-bar button:hover:not(:disabled) { transform: translateY(-1px); }
 .gen-bar button:disabled { opacity: 0.6; cursor: default; }
 
-/* Suggestion chips — sits below a .gen-bar row (Dashboard.tsx only;
-   AgentChat.tsx uses .gen-bar/.primary standalone with no chips row, left
-   completely untouched above). Not merged into .gen-bar itself so nothing
-   shared with AgentChat's layout changes. */
+/* Suggestion chips — sits below a .gen-bar row (AgentChat.tsx uses
+   .gen-bar/.primary standalone with a chips row for its quick-action
+   presets; Dashboard.tsx's own brainstorm panel is Tailwind now, not
+   these classes, but AgentChat still needs them). */
 .gen-bar.has-suggestions { border-bottom: none; }
 .gen-suggestions {
   display: flex; flex-wrap: wrap; gap: 6px; padding: 0 20px 10px; margin-top: -2px;
@@ -294,31 +294,60 @@
 .gen-chip-refresh { border-style: dashed; opacity: 0.75; }
 .gen-chip-refresh:disabled { cursor: default; opacity: 0.5; }
 
-/* Consolidated brainstorm panel — one input + trending chips + 3 action
-   buttons, replacing 3 near-identical ToolBar rows. Scoped under
-   .brainstorm-panel so it doesn't touch .gen-bar/.gen-suggestions'
-   existing rules (AgentChat.tsx still uses those standalone). */
-.brainstorm-panel { padding: 18px 20px; border-bottom: 1px solid var(--dash-border); background: var(--dash-pill-bg); }
-.brainstorm-header h2 { font-size: 15px; font-weight: 700; margin: 0 0 2px; color: var(--dash-text); }
-.brainstorm-header p { font-size: 12.5px; line-height: 1.6; color: var(--dash-muted); margin: 0 0 14px; max-width: 62ch; }
-.brainstorm-panel .gen-suggestions { padding: 0; border-bottom: none; margin: 0 0 10px; }
-.brainstorm-panel .gen-bar { padding: 0; border-bottom: none; margin: 0 0 12px; }
-.brainstorm-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-.brainstorm-actions button {
-  flex: 1; min-width: 130px; display: flex; align-items: center; justify-content: center; gap: 6px;
-  border: none; background: var(--dash-accent); color: var(--dash-accent-ink);
-  border-radius: var(--radius-sm); padding: 9px 14px; font-size: 13px; font-weight: 600;
-  cursor: pointer; transition: transform 0.12s ease, opacity 0.12s ease;
+/* Scenario gallery — personalized "quick start" cards, see
+   components/ScenarioGallery.tsx. Not currently wired into Dashboard.tsx
+   (this branch kept its own FeatureHub/BrainstormPanel/TemplateGallery
+   home screen instead — see that merge decision), kept here unused rather
+   than dropped in case it gets wired in later. Same --dash-* tokens as the
+   rest of this dashboard; card icon backgrounds use each scenario's own
+   accent color via color-mix (inline style), same treatment as /welcome's
+   STEP_COLORS icon chips — no image assets needed. */
+.scenario-gallery { padding: 20px 20px 4px; border-bottom: 1px solid var(--dash-border); flex-shrink: 0; }
+.scenario-gallery-head h2 {
+  margin: 0; font-size: 15.5px; font-weight: 700; color: var(--dash-text);
+  display: flex; align-items: center; gap: 8px;
 }
-.brainstorm-actions button:hover:not(:disabled) { transform: translateY(-1px); }
-.brainstorm-actions button:disabled { opacity: 0.6; cursor: default; }
+.scenario-industry-pill {
+  font-family: var(--font-mono); font-size: 10.5px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.04em; color: var(--dash-accent); background: var(--dash-pill-bg);
+  border-radius: 999px; padding: 2px 9px;
+}
+.scenario-gallery-head p { margin: 3px 0 14px; font-size: 12.5px; color: var(--dash-muted); }
+
+.scenario-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px;
+  padding-bottom: 16px;
+}
+.scenario-card {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 8px; text-align: left;
+  background: var(--dash-card); border: 1px solid var(--dash-border); border-radius: var(--radius-md);
+  padding: 13px; cursor: pointer; transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+  font-family: inherit; color: inherit;
+}
+.scenario-card:hover:not(:disabled) { transform: translateY(-2px); border-color: var(--dash-accent); box-shadow: 0 6px 18px -8px color-mix(in srgb, var(--dash-accent) 45%, transparent); }
+.scenario-card:disabled { opacity: 0.65; cursor: default; }
+.scenario-card-icon {
+  width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center;
+  font-size: 16px; flex-shrink: 0;
+}
+.scenario-card-body { display: flex; flex-direction: column; gap: 2px; }
+.scenario-card-title { font-size: 13.5px; font-weight: 700; color: var(--dash-text); }
+.scenario-card-caption { font-size: 12px; color: var(--dash-muted); line-height: 1.4; }
+.scenario-card-footer {
+  margin-top: auto; padding-top: 8px; width: 100%; display: flex; align-items: center; justify-content: space-between;
+  border-top: 1px solid var(--dash-border);
+}
+.scenario-card-kind { font-size: 11px; color: var(--dash-muted); }
+.scenario-card-cta { font-size: 11.5px; font-weight: 700; color: var(--dash-accent); }
 
 /* Was flex:1 + overflow-y:auto — a pinned-toolbar/scrollable-thread chat
    layout. Everything above this is a normal stacked page section now
    (hub, brainstorm+templates row), not fixed toolbars, so a flex-grow
    region stretching to fill leftover viewport height just pushed the
    actual messages down, leaving a dead gap between the row and the
-   first result. Plain block + margin auto, same as every other section. */
+   first result. Plain block + margin auto, same as every other section —
+   also matches the left-sidebar app layout, which scrolls the whole page
+   area rather than nesting a second scroll container in here. */
 .dash-main { padding: 4px 16px 40px; }
 .thread { width: 100%; max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
 .empty-state { padding: 72px 8px 40px; }

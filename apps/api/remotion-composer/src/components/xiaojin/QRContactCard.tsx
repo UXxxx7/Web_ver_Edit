@@ -100,7 +100,7 @@ export const QRContactCard: React.FC<QRContactCardProps> = ({
           >
             Scan to Chat on WhatsApp
           </div>
-          <div style={{ fontFamily: headingFont, fontSize: 22, fontWeight: 800, color: palette.ink }}>
+          <div style={{ fontFamily: headingFont, fontSize: 26, fontWeight: 800, color: palette.ink }}>
             Opens instantly
           </div>
           <div style={{ fontFamily: labelFont, fontSize: 16, fontWeight: 500, color: palette.inkSoft, marginTop: 4 }}>
@@ -123,7 +123,7 @@ export const QRContactCard: React.FC<QRContactCardProps> = ({
             justifyContent: "center",
           }}
         >
-          <span style={{ fontFamily: headingFont, fontSize: 30, fontWeight: 800, color: "#FFFFFF" }}>
+          <span style={{ fontFamily: headingFont, fontSize: 34, fontWeight: 800, color: "#FFFFFF" }}>
             {ctaLabel}
           </span>
         </div>

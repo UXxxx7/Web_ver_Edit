@@ -7,7 +7,7 @@
 // contract), different presentation: no outer <Card>, no "start over"
 // (in a chat thread you just send the next attachment — old messages stay
 // in the transcript, same as a real WhatsApp conversation).
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import {
   confirmEditJob, getEditJobStatus, getEditorUrl, renderEditJob, retryEditJob, reviseEditJob,
@@ -39,23 +39,27 @@ function fileUrl(jobId: string, path: string | null) {
   return name ? `/api/edit-files/${jobId}/${encodeURIComponent(name)}` : null;
 }
 
-export function AgentJobBubble({
-  job, onUpdate, onHeartbeat,
-}: {
-  job: EditJob;
-  onUpdate: (job: EditJob) => void;
-  onHeartbeat: (text: string) => void;
-}) {
+export function AgentJobBubble({ job, onUpdate }: { job: EditJob; onUpdate: (job: EditJob) => void }) {
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionPending, setActionPending] = useState(false);
   const [reviseText, setReviseText] = useState("");
   const [reviseOpen, setReviseOpen] = useState(false);
   const [editorUrl, setEditorUrl] = useState<string | null>(null);
-  const lastHeartbeatRef = useRef<number>(0);
-
+  // "Taking longer than usual" hint, shown INSIDE this live bubble after
+  // HEARTBEAT_MS in one status, and gone the moment the status advances.
+  // Transient by design: the old version appended a permanent chat message
+  // every 60s, which piled up and lingered even after the job finished.
+  const [slow, setSlow] = useState(false);
   useEffect(() => {
-    lastHeartbeatRef.current = Date.now();
-  }, [job.status]);
+    // Reset when the status changes, then turn on HEARTBEAT_MS later via a
+    // one-shot timer. This runs only on status/job_id change (dep array), so
+    // it can't loop — which is what the set-state-in-effect rule guards against.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSlow(false);
+    if (!job.job_id || !IN_PROGRESS_STATUSES.includes(job.status)) return;
+    const t = setTimeout(() => setSlow(true), HEARTBEAT_MS);
+    return () => clearTimeout(t);
+  }, [job.status, job.job_id]);
 
   useEffect(() => {
     // Skip polling for the PENDING placeholder (empty job_id) — it has an
@@ -66,14 +70,9 @@ export function AgentJobBubble({
     const id = setInterval(async () => {
       const result = await getEditJobStatus(jobId);
       if (result.ok) onUpdate(result.data);
-      // Periodic reassurance during long steps (mirrors WhatsApp worker.js).
-      if (Date.now() - lastHeartbeatRef.current >= HEARTBEAT_MS) {
-        lastHeartbeatRef.current = Date.now();
-        onHeartbeat(HEARTBEAT_TEXT);
-      }
     }, POLL_MS);
     return () => clearInterval(id);
-  }, [job.status, job.job_id, onUpdate, onHeartbeat]);
+  }, [job.status, job.job_id, onUpdate]);
 
   async function runAction(fn: () => Promise<ActionResult<{ status: string }>>) {
     setActionError(null);
@@ -111,10 +110,13 @@ export function AgentJobBubble({
   return (
     <div className="flex flex-col gap-3">
       {STATUS_COPY[job.status] && (
-        <p className="flex items-center gap-2">
-          <span className="dash-spinner" />
-          {STATUS_COPY[job.status]}
-        </p>
+        <div className="flex flex-col gap-1">
+          <p className="flex items-center gap-2">
+            <span className="dash-spinner" />
+            {STATUS_COPY[job.status]}
+          </p>
+          {slow && <p className="pl-6 text-xs text-muted-foreground">{HEARTBEAT_TEXT}</p>}
+        </div>
       )}
 
       {job.status === "WAITING_CONFIRMATION" && job.planned_edit && (

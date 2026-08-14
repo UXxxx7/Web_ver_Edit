@@ -136,7 +136,7 @@ export const CountdownRing: React.FC<CountdownRingProps> = ({
         >
           {label}
         </div>
-        <div style={{ fontFamily: headingFont, fontSize: 38, fontWeight: 800, color: "#FFFFFF", lineHeight: 1.2 }}>
+        <div style={{ fontFamily: headingFont, fontSize: 44, fontWeight: 800, color: "#FFFFFF", lineHeight: 1.2 }}>
           {headline}
           {headlineAccent ? (
             <>

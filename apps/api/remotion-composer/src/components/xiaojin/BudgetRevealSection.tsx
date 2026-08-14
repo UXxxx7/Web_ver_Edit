@@ -102,15 +102,15 @@ export const BudgetRevealSection: React.FC<BudgetRevealSectionProps> = ({
         overflow: "hidden",
       }}
     >
-      <div style={{ height: 6, width: "100%", background: "linear-gradient(90deg,#E0552F,#E8A13C)" }} />
+      <div style={{ height: 6, width: "100%", background: "linear-gradient(90deg,#4F46E5,#FF6B35)" }} />
       <div style={{ padding: "26px 34px 34px" }}>
         <div
           style={{
             fontFamily: headingFont,
-            fontSize: 20,
+            fontSize: 24,
             fontWeight: 800,
             letterSpacing: 2,
-            color: "#E0552F",
+            color: "#4F46E5",
             marginBottom: 22,
           }}
         >
@@ -119,23 +119,23 @@ export const BudgetRevealSection: React.FC<BudgetRevealSectionProps> = ({
 
         <div style={{ display: "flex", alignItems: "center" }}>
           <div style={{ flex: 1 }}>
-            <div style={{ fontFamily: labelFont, fontSize: 16, fontWeight: 700, letterSpacing: 1, color: "#8A8272", marginBottom: 6 }}>
+            <div style={{ fontFamily: labelFont, fontSize: 16, fontWeight: 700, letterSpacing: 1, color: "#6B6F76", marginBottom: 6 }}>
               {leftLabel.toUpperCase()}
             </div>
-            <div style={{ fontFamily: headingFont, fontSize: 52, fontWeight: 800, color: "#2A2620", lineHeight: 1 }}>
+            <div style={{ fontFamily: headingFont, fontSize: 60, fontWeight: 800, color: "#181A1B", lineHeight: 1 }}>
               {leftPrefix}{fmt(leftAnimated, leftDecimals)}{leftSuffix}
             </div>
           </div>
 
           <div style={{ width: 70, textAlign: "center", transform: `scale(${arrowScale})`, opacity: arrowShown ? 1 : 0 }}>
-            <span style={{ fontSize: 34, color: "#E0552F" }}>{"↗"}</span>
+            <span style={{ fontSize: 34, color: "#4F46E5" }}>{"↗"}</span>
           </div>
 
           <div style={{ flex: 1, textAlign: "right" }}>
-            <div style={{ fontFamily: labelFont, fontSize: 16, fontWeight: 700, letterSpacing: 1, color: "#E0552F", marginBottom: 6 }}>
+            <div style={{ fontFamily: labelFont, fontSize: 16, fontWeight: 700, letterSpacing: 1, color: "#4F46E5", marginBottom: 6 }}>
               {rightLabel.toUpperCase()}
             </div>
-            <div style={{ fontFamily: headingFont, fontSize: 52, fontWeight: 800, color: "#E0552F", lineHeight: 1 }}>
+            <div style={{ fontFamily: headingFont, fontSize: 60, fontWeight: 800, color: "#4F46E5", lineHeight: 1 }}>
               {rightPrefix}{fmt(rightAnimated, rightDecimals)}{rightSuffix}
             </div>
           </div>

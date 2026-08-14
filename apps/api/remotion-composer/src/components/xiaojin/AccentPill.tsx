@@ -68,7 +68,7 @@ export const AccentPill: React.FC<AccentPillProps> = ({
       <span
         style={{
           fontFamily: headingFont,
-          fontSize: 30,
+          fontSize: 34,
           fontWeight: 800,
           color: "#FFFFFF",
           textAlign: "center",

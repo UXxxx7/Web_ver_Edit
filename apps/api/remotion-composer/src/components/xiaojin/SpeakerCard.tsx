@@ -1,7 +1,9 @@
 /**
  * Floating rounded-card speaker treatment — the signature move of the
- * xiaojin-editorial style. Never full-bleed; travels the canvas as a
- * physical card with a drop shadow.
+ * xiaojin-editorial style. Travels the canvas as a physical card with a
+ * drop shadow by default; a scene can opt out via `chrome: "none"` for
+ * full-bleed video-as-background moments (2026-08-12 addition — footage
+ * behind a big graphic instead of framed inside a windowed card).
  *
  * Generalized from video-studio's `motion/vell-renewal-reminder/src/VellRenewal/SpeakerCard.tsx`:
  * that version hardcoded one video's exact scene positions/timings. Here the
@@ -24,6 +26,15 @@ export interface SpeakerCardScene {
   y: number;
   w: number;
   h: number;
+  /**
+   * "card" (default) = the classic floating rounded/bordered/shadowed
+   * treatment. "none" = no chrome at all — footage sits directly on the
+   * canvas as a plain rect, for full-bleed video-as-background moments (e.g.
+   * an intro where a title graphic needs footage as its backdrop, not a
+   * windowed card). Unlike x/y/w/h this is a discrete authored choice, not
+   * interpolated — it switches at the scene's own frame (see chromeAt).
+   */
+  chrome?: "card" | "none";
 }
 
 export interface SpeakerCardOpacityKeyframe {
@@ -86,6 +97,20 @@ function withHoldKeyframes(scenes: SpeakerCardScene[]): SpeakerCardScene[] {
   return expanded;
 }
 
+/**
+ * Discrete, step-function lookup (NOT interpolated, unlike the rect) — chrome
+ * is an on/off authored choice, so it switches cleanly at the owning scene's
+ * frame rather than blending. Same "last entry at or before current frame
+ * wins" idiom as ChapterNav's active-chapter lookup elsewhere in this family.
+ */
+export function chromeAt(scenes: SpeakerCardScene[], frame: number): "card" | "none" {
+  let active: "card" | "none" = scenes[0]?.chrome ?? "card";
+  for (const s of scenes) {
+    if (s.frame <= frame) active = s.chrome ?? "card";
+  }
+  return active;
+}
+
 export interface SpeakerRect { x: number; y: number; w: number; h: number }
 
 /**
@@ -141,6 +166,7 @@ export const SpeakerCard: React.FC<SpeakerCardProps> = ({
   const rect = speakerRectAt(scenes, frame);
   if (!rect) return null;
   const { x: cx, y: cy, w: cw, h: ch } = rect;
+  const chrome = chromeAt(scenes, frame);
 
   const opts = {
     extrapolateLeft: "clamp" as const,
@@ -173,14 +199,17 @@ export const SpeakerCard: React.FC<SpeakerCardProps> = ({
         height: ch,
         opacity: enter * cardOpacity,
         transform: `translateY(${(1 - enter) * 90}px)`,
-        borderRadius: 28,
+        borderRadius: chrome === "none" ? 0 : 28,
         overflow: "hidden",
-        boxShadow: [
-          `0 36px 90px ${palette.shadow}`,
-          `0 12px 32px rgba(0,0,0,0.20)`,
-          `inset 0 1.5px 0 rgba(255,255,255,0.30)`,
-        ].join(", "),
-        border: `5px solid ${palette.card}`,
+        boxShadow:
+          chrome === "none"
+            ? "none"
+            : [
+                `0 36px 90px ${palette.shadow}`,
+                `0 12px 32px rgba(0,0,0,0.20)`,
+                `inset 0 1.5px 0 rgba(255,255,255,0.30)`,
+              ].join(", "),
+        border: chrome === "none" ? "none" : `5px solid ${palette.card}`,
         background: "#000",
       }}
     >

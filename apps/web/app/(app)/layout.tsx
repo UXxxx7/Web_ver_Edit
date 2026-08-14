@@ -48,7 +48,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             Studio
           </span>
         </Link>
-
         <nav className="flex flex-col gap-0.5 px-3">
           {NAV.map((item) => (
             <Link

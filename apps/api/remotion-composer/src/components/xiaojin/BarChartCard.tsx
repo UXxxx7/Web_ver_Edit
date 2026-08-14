@@ -77,7 +77,7 @@ export const BarChartCard: React.FC<BarChartCardProps> = ({
     >
       {title ? (
         <div style={{
-          fontFamily: headingFont, fontSize: 16, fontWeight: 600, letterSpacing: 3,
+          fontFamily: headingFont, fontSize: 18, fontWeight: 600, letterSpacing: 3,
           color: palette.inkSoft, textTransform: "uppercase", marginBottom: 20,
         }}>
           {title}
@@ -98,7 +98,7 @@ export const BarChartCard: React.FC<BarChartCardProps> = ({
           return (
             <div key={i} style={{ width: colWidth, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", height: "100%" }}>
               <span style={{
-                fontFamily: headingFont, fontSize: 18, fontWeight: 800, color: palette.ink,
+                fontFamily: headingFont, fontSize: 22, fontWeight: 800, color: palette.ink,
                 marginBottom: 8, opacity: labelFade,
               }}>
                 {item.displayValue ?? Math.round(shownValue)}

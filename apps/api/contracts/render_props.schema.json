@@ -154,6 +154,11 @@
           },
           "h": {
             "type": "number"
+          },
+          "chrome": {
+            "type": "string",
+            "enum": ["card", "none"],
+            "description": "\"card\" (default, omit to get this) = classic floating rounded/bordered/shadowed treatment. \"none\" = full-bleed, no chrome — footage as a video-as-background moment (e.g. behind an intro title graphic). Discrete, not interpolated between scenes."
           }
         }
       },

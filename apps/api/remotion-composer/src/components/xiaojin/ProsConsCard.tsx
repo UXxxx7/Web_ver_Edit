@@ -58,7 +58,7 @@ export const ProsConsCard: React.FC<ProsConsCardProps> = ({
   }) => (
     <div style={{ flex: 1, background: tint, borderRadius: 16, padding: "16px 16px 18px" }}>
       <div style={{
-        fontFamily: headingFont, fontSize: 13, fontWeight: 800, letterSpacing: 1.5,
+        fontFamily: headingFont, fontSize: 16, fontWeight: 800, letterSpacing: 1.5,
         textTransform: "uppercase", color, marginBottom: 12,
       }}>
         {label}
@@ -100,7 +100,7 @@ export const ProsConsCard: React.FC<ProsConsCardProps> = ({
     <div style={{ position: "absolute", left: x, top: y, width, opacity: cardEntry * exitFade }}>
       {title ? (
         <div style={{
-          fontFamily: headingFont, fontSize: 18, fontWeight: 700, color: palette.ink,
+          fontFamily: headingFont, fontSize: 22, fontWeight: 700, color: palette.ink,
           textAlign: "center", marginBottom: 16,
         }}>
           {title}

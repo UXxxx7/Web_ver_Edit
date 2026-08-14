@@ -70,7 +70,7 @@ export const MilestoneTrackCard: React.FC<MilestoneTrackCardProps> = ({
     >
       {title ? (
         <div style={{
-          fontFamily: headingFont, fontSize: 16, fontWeight: 600, letterSpacing: 3,
+          fontFamily: headingFont, fontSize: 18, fontWeight: 600, letterSpacing: 3,
           color: palette.inkSoft, textTransform: "uppercase", marginBottom: 30,
         }}>
           {title}

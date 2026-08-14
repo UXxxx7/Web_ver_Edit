@@ -1,7 +1,7 @@
 import React from "react";
 import { AbsoluteFill } from "remotion";
 import { CARD_RENDERERS } from "./components/xiaojin/galleryRegistry";
-import type { ColorMode } from "./components/xiaojin/theme";
+import { PALETTES, type ColorMode } from "./components/xiaojin/theme";
 
 /**
  * Isolated single-card composition for the Phase D animation gallery.
@@ -24,9 +24,11 @@ export interface CardPreviewProps extends Record<string, unknown> {
 }
 
 export const CardPreview: React.FC<CardPreviewProps> = ({ section, item, colorMode = "warm" }) => {
-  // Same formula as XiaojinEditorial.tsx's own `bg` — kept in sync by hand,
-  // it's a two-value ternary, not worth a shared import for.
-  const bg = colorMode === "warm" ? "#F2EBE0" : "#0D1117";
+  // Same formula as XiaojinEditorial.tsx's own `bg` — both now read straight
+  // from PALETTES so a mode's actual look (e.g. warm's grid pattern) can't
+  // drift out of sync between the two files the way the old hardcoded
+  // two-value ternary did.
+  const bg = PALETTES[colorMode].bg;
   const renderer = CARD_RENDERERS[section];
 
   return (

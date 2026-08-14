@@ -82,7 +82,7 @@ export const TrustBadgeCard: React.FC<TrustBadgeCardProps> = ({
     <div style={{ position: "absolute", left: x, top: y, width, opacity: cardEntry * exitFade }}>
       {title ? (
         <div style={{
-          fontFamily: headingFont, fontSize: 16, fontWeight: 600, letterSpacing: 3,
+          fontFamily: headingFont, fontSize: 18, fontWeight: 600, letterSpacing: 3,
           color: palette.inkSoft, textTransform: "uppercase", marginBottom: 14,
         }}>
           {title}
@@ -112,7 +112,7 @@ export const TrustBadgeCard: React.FC<TrustBadgeCardProps> = ({
                 <TrustIcon name={b.icon} color="#FFFFFF" />
               </div>
               <div style={{ display: "flex", flexDirection: "column" }}>
-                <span style={{ fontFamily: headingFont, fontSize: 19, fontWeight: 800, color: palette.ink }}>
+                <span style={{ fontFamily: headingFont, fontSize: 22, fontWeight: 800, color: palette.ink }}>
                   {b.primary}
                 </span>
                 <span style={{

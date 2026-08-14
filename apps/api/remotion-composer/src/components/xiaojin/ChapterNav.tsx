@@ -81,7 +81,7 @@ export const ChapterNav: React.FC<ChapterNavProps> = ({
             <span
               style={{
                 fontFamily: headingFont,
-                fontSize: 26,
+                fontSize: 30,
                 fontWeight: on ? 700 : 500,
                 color: on ? palette.accent : palette.inkSoft,
               }}

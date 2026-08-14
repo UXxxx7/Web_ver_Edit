@@ -62,7 +62,7 @@ export const StepList: React.FC<StepListProps> = ({
     <div style={{ position: "absolute", left: x, top: y, width, opacity: cardEntry * exitFade }}>
       {title ? (
         <div style={{
-          fontFamily: headingFont, fontSize: 16, fontWeight: 600, letterSpacing: 3,
+          fontFamily: headingFont, fontSize: 18, fontWeight: 600, letterSpacing: 3,
           color: palette.inkSoft, textTransform: "uppercase", marginBottom: 14,
         }}>
           {title}
@@ -106,7 +106,7 @@ export const StepList: React.FC<StepListProps> = ({
                 background: active ? palette.accent : "transparent",
                 border: active ? "none" : `1.5px solid ${palette.inkSoft}`,
                 display: "flex", alignItems: "center", justifyContent: "center",
-                fontFamily: headingFont, fontSize: 20, fontWeight: 800,
+                fontFamily: headingFont, fontSize: 24, fontWeight: 800,
                 color: active ? "#FFFFFF" : palette.inkSoft,
               }}
             >
