@@ -6,5 +6,9 @@ import { getLang } from "@/lib/i18n.server";
 export default async function CommunityPage() {
   const user = await requireUser();
   const [initialPosts, lang] = await Promise.all([community.listPosts(user.id), getLang()]);
-  return <CommunityFeed initialPosts={initialPosts} currentUserId={user.id} lang={lang} />;
+  return (
+    <div className="dash">
+      <CommunityFeed initialPosts={initialPosts} currentUserId={user.id} lang={lang} />
+    </div>
+  );
 }

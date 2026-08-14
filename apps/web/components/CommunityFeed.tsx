@@ -34,6 +34,21 @@ function fileUrl(jobId: string, path: string | null) {
   return name ? `/api/edit-files/${jobId}/${encodeURIComponent(name)}` : null;
 }
 
+// Hand-drawn heart, same treatment as every other icon in the app — no emoji.
+function HeartIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 20.5c-.3 0-.6-.1-.8-.3C6.8 16.6 4 14 4 10.5 4 7.9 6 6 8.4 6c1.4 0 2.7.7 3.6 1.9C12.9 6.7 14.2 6 15.6 6 18 6 20 7.9 20 10.5c0 3.5-2.8 6.1-7.2 9.7-.2.2-.5.3-.8.3Z" />
+    </svg>
+  );
+}
+
+// Shared card treatment matching the rest of the dashboard (FeatureHub,
+// TemplateGallery, MyVideos) — the shadcn Card default (rounded-xl +
+// ring-1) is a different, plainer look than the tinted-shadow cards used
+// everywhere else in the app.
+const CARD_CLASS = "rounded-2xl border border-border shadow-[0_3px_16px_-6px_rgba(15,27,60,0.12)] ring-0";
+
 const T = {
   zh: {
     title: "社群",
@@ -139,7 +154,7 @@ export function CommunityFeed({
         <p className="mt-1 text-sm text-muted-foreground">{t.subtitle}</p>
       </div>
 
-      <Card>
+      <Card className={CARD_CLASS}>
         <CardContent className="flex flex-col gap-3">
           <h3 className="text-sm font-semibold">{t.composeTitle}</h3>
 
@@ -191,7 +206,7 @@ export function CommunityFeed({
         {posts.map((post) => {
           const src = fileUrl(post.jobId, post.videoFilename);
           return (
-            <Card key={post.id}>
+            <Card key={post.id} className={CARD_CLASS}>
               <CardContent className="flex flex-col gap-3">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
@@ -216,7 +231,7 @@ export function CommunityFeed({
                   onClick={() => like(post.id)}
                   className="w-fit"
                 >
-                  {post.likedByMe ? "❤️" : "🤍"} {post.likeCount} {post.likedByMe ? t.liked : t.like}
+                  <HeartIcon filled={post.likedByMe} /> {post.likeCount} {post.likedByMe ? t.liked : t.like}
                 </Button>
               </CardContent>
             </Card>
