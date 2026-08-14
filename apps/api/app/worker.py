@@ -563,7 +563,14 @@ def generate_croll(job_id: str, photo_path: str, lang: str = "zh", hint: str = "
 
         script = write_script(photo_path, lang=lang, hint=hint)
         if not script:
-            raise RuntimeError("看图写文案失败（视觉 LLM 不可用或未返回内容）")
+            # 呢句错误信息以前讲"視覺 LLM"係啱嘅（write_script 舊版真係會睇
+            # 相），但 croll_script.py 2026-08-11 已经改咗做纯文字调用
+            # （call_llm_chat，唔再睇相），呢度冇同步跟住改——真实撞到过
+            # （job_0320d4af3cd5,2026-08-14）：croll_script.py 自己嘅
+            # log 正确讲"主 LLM 不可用",但呢度抛出嚟畀用户睇嘅错误仲话
+            # 係"視覺 LLM"，误导咗排查方向。跟返 croll_script.py 自己
+            # 准确嘅措辞。
+            raise RuntimeError("文案生成失败（主 LLM 不可用或未返回内容，可能是暂时性 API 波动，重试通常能解决）")
         logger.info(f"  C-roll 文案（{job_id}）: {script[:80]}")
         # HeyGen 数字人念的就是这段文字，逐字保证准确——存下来给后面的
         # transcribe_segments 用来纠正 ASR 听错的同音字/含糊音（而不是让
