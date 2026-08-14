@@ -25,6 +25,7 @@ from .config import get_config
 from .database import JobStatus, MessageDirection, MessageType
 from .job_manager import (
     append_asset,
+    count_jobs_for_user,
     create_job,
     finalize_target,
     get_active_job_for_user,
@@ -491,6 +492,23 @@ def get_batch_endpoint(batch_id: str):
             "asset_kind": "video" if (filename or "").endswith(".mp4") else "image",
         })
     return {"batch_id": batch_id, "variants": variants}
+
+
+@router.get("/users/{wa_number}/onboarding-status")
+async def get_onboarding_status(wa_number: str):
+    """轻量级用户级摘要，只供 apps/web 首页嘅 onboarding checklist 用——
+    唔重用 get_active_job_for_user（净返回一个"活跃中"job，用户完成咗
+    退出活跃状态之后就唔计喺入面）,呢度要嘅系"呢个用户试过未",唔系
+    "而家有冇嘢喺跑紧"，所以用 count_jobs_for_user 计全部历史 job。
+
+    get_or_create_user：呢个 endpoint 冇建 job 嘅副作用,但用户可能仲未
+    喺 Python 呢边有过 User 行（例如净係填过 profile,未做过任何生成）,
+    跟其它 endpoint 一致处理,首次访问就建返一行,唔额外特殊判断。"""
+    user = get_or_create_user(wa_number)
+    return {
+        "job_count": count_jobs_for_user(user.id),
+        "voice_cloned": bool(user.elevenlabs_voice_id),
+    }
 
 
 @router.post("/voice-clone")
