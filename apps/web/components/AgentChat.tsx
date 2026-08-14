@@ -88,6 +88,61 @@ const QUICK_ACTIONS = [
   { icon: ICONS.volumeMute, label: "強力降噪", text: "把聲環境好嘈，幫我強力降噪（noise_reduce）。" },
 ] as const;
 
+// What each attachment type actually does — the compose bar accepts video,
+// photo, or a voice sample, but nothing else on the page says what each
+// one is for until you've already attached something. Same tinted-card
+// treatment as FeatureHub's secondary cards, so the empty state reads as
+// part of the same product rather than a bare placeholder message.
+const USES = [
+  {
+    icon: ICONS.video, color: "#3E63FF",
+    title: "上載一條片", body: "AI幫你剪走贅字、加字幕、裁做直度。",
+  },
+  {
+    icon: ICONS.image, color: "#8B5CF6",
+    title: "上載一張相", body: "一鍵生成識講嘢嘅數碼人影片。",
+  },
+  {
+    icon: ICONS.audio, color: "#22C55E",
+    title: "上載聲音樣本", body: "複製你把聲，之後可以攞嚟配音。",
+  },
+] as const;
+
+function AgentIntro({ onAttach }: { onAttach: () => void }) {
+  return (
+    <div className="mx-auto max-w-2xl px-4 py-14 text-center sm:py-16">
+      <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-[26px]">
+        上載一條片、相，或者聲音樣本
+      </h2>
+      <p className="mx-auto mt-2 max-w-md text-[13.5px] leading-relaxed text-muted-foreground">
+        同AI講你想點剪，例如「剪走贅字、加字幕」——揀低面任何一種開始。
+      </p>
+
+      <div className="mt-8 grid grid-cols-1 gap-3 text-left sm:grid-cols-3">
+        {USES.map((use) => (
+          <button
+            key={use.title}
+            type="button"
+            onClick={onAttach}
+            className="flex flex-col items-start rounded-2xl border border-border bg-card p-4 shadow-[0_3px_16px_-6px_rgba(15,27,60,0.12)] transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-[0_8px_24px_-8px_rgba(15,27,60,0.16)]"
+          >
+            <span
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg"
+              style={{ background: `color-mix(in srgb, ${use.color} 12%, transparent)`, color: use.color }}
+            >
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d={use.icon} />
+              </svg>
+            </span>
+            <h3 className="mt-3 text-[14px] font-semibold text-foreground">{use.title}</h3>
+            <p className="mt-1 text-[12.5px] leading-snug text-muted-foreground">{use.body}</p>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function AgentChat() {
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [text, setText] = useState("");
@@ -316,13 +371,7 @@ export function AgentChat() {
       )}
       <main className="dash-main">
         <div className="thread">
-          {messages.length === 0 && (
-            <div className="empty-state">
-              <p className="kicker">Agent — auto-generate from a video, photo, or voice sample</p>
-              <h2>Attach something, tell me what you want.</h2>
-              <p>{FALLBACK_REPLY}</p>
-            </div>
-          )}
+          {messages.length === 0 && <AgentIntro onAttach={handleAttachClick} />}
           {messages.map((msg) => {
             if (msg.role === "user") {
               return (

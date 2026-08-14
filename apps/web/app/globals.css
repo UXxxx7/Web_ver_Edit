@@ -275,6 +275,25 @@
   box-shadow: 0 8px 24px -8px color-mix(in srgb, var(--dash-accent) 40%, transparent);
 }
 
+/* .force-light pins --dash-bg etc. back to light values (see that class's
+   own definition above), but .dark .dash above sets `background` directly
+   with hardcoded colors — a custom-property override can't touch that. If
+   .dash sits inside .force-light (e.g. AgentChat under the app's sidebar
+   layout) while the OS/browser is in dark mode, .dark still lands on
+   <html> via next-themes and this more-specific-by-source-order rule is
+   needed to win back the light treatment. Must stay physically after the
+   .dark .dash rules above for the cascade to resolve this way. */
+.force-light .dash {
+  background:
+    radial-gradient(ellipse 600px 420px at 100% 0%, color-mix(in srgb, var(--dash-accent) 6%, transparent), transparent 60%),
+    var(--dash-bg);
+}
+.force-light .dash::before {
+  opacity: 0.25;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
 .gen-bar {
   display: flex; align-items: center; gap: 8px; padding: 10px 20px;
   border-bottom: 1px solid var(--dash-border); flex-shrink: 0;
