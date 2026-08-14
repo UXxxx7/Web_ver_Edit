@@ -746,6 +746,8 @@ function Editor({
         filmstripUrls={filmstripUrls}
         waveformUrl={waveformUrl}
         cuts={cuts}
+        sourceDurationFrames={sourceDurationFrames}
+        onCutsChange={handleCutsChange}
         onScrubStart={handleScrubStart}
         onScrubEnd={handleScrubEnd}
       />
