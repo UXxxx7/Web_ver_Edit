@@ -37,7 +37,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!user) redirect("/login"); // proxy.ts already guards this; belt-and-suspenders for direct server-render.
 
   return (
-    <div className="force-light flex h-dvh bg-background text-foreground">
+    <div className="dark flex h-dvh bg-background text-foreground">
       {/* Figma-app style left rail, not a top bar — logo, nav items with
           icon+label, account chip pinned to the bottom. */}
       <aside className="flex w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
