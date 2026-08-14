@@ -14,6 +14,11 @@ import React from "react";
  * mapping is deliberately NOT done inside this component — it stays
  * decoupled from src/cuts.ts so Arm B's bundle never needs to pull in Arm
  * A's SOURCE/OUTPUT frame-mapping machinery just to render a filmstrip.
+ *
+ * `trackHandlers` lets the parent decide what a pointer gesture on these
+ * two lanes actually means — Timeline.tsx passes playhead-scrub handlers
+ * normally, or the razor tool's drag-to-cut handlers while razor mode is
+ * active (see useRazorSelect.ts) — this component stays agnostic to which.
  */
 export function VideoAudioLanes({
   durationInFrames,
@@ -24,6 +29,8 @@ export function VideoAudioLanes({
   waveformUrl,
   spliceFrames,
   spliceTitle,
+  trackHandlers,
+  trackClassName,
 }: {
   durationInFrames: number;
   pxPerFrame: number;
@@ -34,8 +41,13 @@ export function VideoAudioLanes({
   spliceFrames?: number[];
   /** Optional per-splice-index tooltip text (Arm A shows "Cut here (N frames removed)"); omit for a bare marker. */
   spliceTitle?: (index: number) => string | undefined;
+  trackHandlers?: React.HTMLAttributes<HTMLDivElement>;
+  /** Extra class on both lane__track elements — Timeline.tsx uses this to
+   *  swap in the razor cursor while the tool is active. */
+  trackClassName?: string;
 }) {
   const splices = spliceFrames || [];
+  const trackClass = `lane__track${trackClassName ? ` ${trackClassName}` : ""}`;
   return (
     <>
       <div className="lane" style={{ height: rowHeight * 2 }}>
@@ -43,7 +55,7 @@ export function VideoAudioLanes({
           <span className="lane__swatch" style={{ background: "#6C63FF" }} />
           <span>Video</span>
         </div>
-        <div className="lane__track" style={{ left: labelWidth }}>
+        <div className={trackClass} style={{ left: labelWidth }} {...trackHandlers}>
           <div
             className="clip clip--video"
             style={{ left: 0, width: durationInFrames * pxPerFrame, top: 2, height: rowHeight * 2 - 5 }}
@@ -68,7 +80,7 @@ export function VideoAudioLanes({
           <span className="lane__swatch" style={{ background: "#4FA8E8" }} />
           <span>Audio</span>
         </div>
-        <div className="lane__track" style={{ left: labelWidth }}>
+        <div className={trackClass} style={{ left: labelWidth }} {...trackHandlers}>
           <div
             className="clip clip--waveform"
             style={{

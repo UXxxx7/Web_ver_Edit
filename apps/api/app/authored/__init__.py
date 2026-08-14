@@ -824,6 +824,15 @@ def _compose_authored_inner(job) -> dict | None:
 
     preview = job_dir / "preview.mp4"
     shutil.copyfile(rep.mp4, preview)
+    # webhook.py's editor_get_authored (manual editor "open" for an Arm B
+    # job) reads a plain authored/scene.tsx — this compose loop only ever
+    # wrote numbered revision files (scene_r1.tsx, scene_r2.tsx, ...), so
+    # that route 404'd on every single Arm B job, every time (confirmed
+    # 2026-08-14: live 404s in the API log for /api/editor/{id}/authored).
+    # rep.tsx is the winning revision's source — write it out under the
+    # plain name the editor actually looks for.
+    if rep.tsx:
+        (out_dir / "scene.tsx").write_text(rep.tsx, encoding="utf-8")
     logger.info(f"=== ArmB 出片: {job.id} → {preview} "
                 f"(status={rep.status}, rounds={rep.rounds}, cost=${rep.cost_usd:.4f}) ===")
     # 返回与 Arm A 主返回同构的关键字段;验收时如发现下游还消费其它键,在此补齐

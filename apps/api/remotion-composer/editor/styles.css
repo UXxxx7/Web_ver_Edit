@@ -641,7 +641,10 @@ body {
 }
 
 .timeline__viewtoggle { display: flex; gap: 2px; }
-.timeline__viewtoggle .btn[aria-selected="true"] {
+/* Covers both the By-type/Layers toggle group above and any other
+ * standalone toggle button in this bar (e.g. the razor tool) — same
+ * pressed-state look everywhere a toolbar button is a binary on/off. */
+.timeline__bar .btn[aria-selected="true"] {
   background: var(--accent-dim);
   border-color: var(--accent);
   color: var(--accent);
@@ -856,6 +859,27 @@ body {
   background: var(--danger, #e5484d);
   pointer-events: none;
   z-index: 1;
+}
+
+/* Razor tool (Timeline.tsx's razorMode + useRazorSelect.ts) — cursor swap
+ * on the Video/Audio lanes while armed, and the live click-drag selection
+ * rectangle painted straight to the DOM during the gesture (not React
+ * state, see useRazorSelect.ts's own comment on why). */
+.lane__track--razor {
+  cursor: crosshair;
+}
+.razor-selection {
+  position: absolute;
+  /* .timeline__canvas (the nearest positioned ancestor) starts at the
+   * RULER's top, not the Video lane's — without this offset the overlay
+   * sits under/behind the sticky ruler (z-index 3 > this) instead of over
+   * the Video/Audio lanes, invisible the whole time it's "working". */
+  top: calc(var(--ruler-h) + 2px);
+  background: var(--danger-dim);
+  border-left: 2px solid var(--danger);
+  border-right: 2px solid var(--danger);
+  pointer-events: none;
+  z-index: 2;
 }
 
 /* Point-in-time markers (chapters, scenes, opacityKeyframes) — these have no

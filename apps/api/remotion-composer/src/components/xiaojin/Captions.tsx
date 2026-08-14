@@ -10,6 +10,11 @@
  * Progress within a phrase is `interpolate(ms, [startMs, endMs], [0, chars.length])`,
  * floored to a highlighted character count — same formula as their
  * `Captions.tsx` v4 reference implementation.
+ *
+ * (2026-08-14: a word-by-word "pop" bounce variant was tried and reverted —
+ * didn't fit the brand style as a blanket effect on every word. If a
+ * keyword-only emphasis pop is wanted later, it needs a way to mark WHICH
+ * words get it, not every word — flag this back if picking that up again.)
  */
 import { useCurrentFrame, useVideoConfig } from "remotion";
 import { CAPTION_BOTTOM, ColorMode, PALETTES, W } from "./theme";
@@ -43,7 +48,7 @@ export const Captions: React.FC<CaptionsProps> = ({
   introOutFrame = 0,
   colorMode = "warm",
   font = "inherit",
-  fontSize = 42,
+  fontSize = 60,
   maxWidth = 960,
   noSweepBelowMs = 200,
   position,
