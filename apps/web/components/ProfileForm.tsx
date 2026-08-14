@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,16 +44,32 @@ export function ProfileForm({ profile, lang }: { profile: Profile; lang: Lang })
   const [state, formAction, pending] = useActionState(updateProfileAction, initialState);
   const t = DICT[lang];
 
+  // Controlled, not defaultValue — updateProfileAction revalidates the
+  // Server Component, which re-fetches profile and passes a new value into
+  // this same (not remounted) Client Component instance. defaultValue only
+  // applies at mount, so that prop change was firing Base UI's "changing
+  // default value of an uncontrolled field" warning on every save.
+  const [displayName, setDisplayName] = useState(profile.display_name);
+  const [role, setRole] = useState(profile.role);
+  const [preferredLang, setPreferredLang] = useState(profile.preferred_lang);
+  const [brandVoiceNotes, setBrandVoiceNotes] = useState(profile.brand_voice_notes);
+
   return (
     <form action={formAction} className="flex flex-col gap-5">
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="display_name">{t.displayName}</Label>
-          <Input id="display_name" name="display_name" defaultValue={profile.display_name} placeholder={t.displayNamePh} />
+          <Input
+            id="display_name" name="display_name" value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)} placeholder={t.displayNamePh}
+          />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="role">{t.role}</Label>
-          <Input id="role" name="role" defaultValue={profile.role} placeholder={t.rolePh} />
+          <Input
+            id="role" name="role" value={role}
+            onChange={(e) => setRole(e.target.value)} placeholder={t.rolePh}
+          />
         </div>
       </div>
 
@@ -62,7 +78,8 @@ export function ProfileForm({ profile, lang }: { profile: Profile; lang: Lang })
         <select
           id="preferred_lang"
           name="preferred_lang"
-          defaultValue={profile.preferred_lang}
+          value={preferredLang}
+          onChange={(e) => setPreferredLang(e.target.value as Profile["preferred_lang"])}
           className="h-9 rounded-lg border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
         >
           <option value="zh">中文（廣東話）</option>
@@ -75,7 +92,8 @@ export function ProfileForm({ profile, lang }: { profile: Profile; lang: Lang })
         <Textarea
           id="brand_voice_notes"
           name="brand_voice_notes"
-          defaultValue={profile.brand_voice_notes}
+          value={brandVoiceNotes}
+          onChange={(e) => setBrandVoiceNotes(e.target.value)}
           rows={4}
           placeholder={t.brandVoicePh}
         />

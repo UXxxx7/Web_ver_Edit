@@ -90,10 +90,10 @@
   --sidebar-border: #DEE3F0;
   --sidebar-ring: #3E63FF;
 
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-sans: var(--font-latin), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", Menlo, monospace;
 
-  --dash-bg: #F4F6FB;
+  --dash-bg: #EAEDF7;
   --dash-card: #FFFFFF;
   --dash-text: #0F1B3C;
   --dash-muted: #5B6B8C;
@@ -104,6 +104,7 @@
   --dash-bubble-user: #0F1B3C;
   --dash-bubble-user-text: #F4F6FB;
   --dash-nav-bg: #FFFFFF;
+  --hero-bg: #1B2352;
 }
 
 /* Pins the light palette regardless of system/OS dark mode — for pages
@@ -133,7 +134,7 @@
   /* The brainstorm dashboard (.dash, .gen-bar, .bubble, ...) reads its own
      --dash-* tokens, not the shadcn ones above — pin those too so the whole
      app (not just /welcome and auth) stays premium-white if it opts in. */
-  --dash-bg: #F4F6FB;
+  --dash-bg: #EAEDF7;
   --dash-card: #FFFFFF;
   --dash-text: #0F1B3C;
   --dash-muted: #5B6B8C;
@@ -144,6 +145,7 @@
   --dash-bubble-user: #0F1B3C;
   --dash-bubble-user-text: #F4F6FB;
   --dash-nav-bg: #FFFFFF;
+  --hero-bg: #1B2352;
 }
 
 .dark {
@@ -190,6 +192,10 @@
   --dash-bubble-user: #6C8CFF;
   --dash-bubble-user-text: #0B1020;
   --dash-nav-bg: #10152B;
+  /* Transparent here — the hero banner floats directly on .dash's own
+     atmospheric gradient in dark mode instead of sitting in a second,
+     redundant dark box (see .dark .dash above). */
+  --hero-bg: transparent;
 }
 
 @layer base {
@@ -208,8 +214,45 @@
    (OpenMontage-p2), new palette via --dash-* tokens above. ── */
 .dash {
   --radius-sm: 8px; --radius-md: 11px; --radius-lg: 16px;
-  background: var(--dash-bg); color: var(--dash-text);
+  position: relative;
+  /* Figma-style restraint: near-white base, one quiet accent tucked in a
+     corner instead of a full-bleed multi-hue mesh. Saturated color washing
+     over the whole page is itself an AI-generation tell — a confident
+     product doesn't need to prove it's colorful everywhere, the content
+     and typography carry it instead. */
+  background:
+    radial-gradient(ellipse 600px 420px at 100% 0%, color-mix(in srgb, var(--dash-accent) 6%, transparent), transparent 60%),
+    var(--dash-bg);
+  color: var(--dash-text);
   min-height: 100%; display: flex; flex-direction: column;
+}
+/* Faint grain only — enough to avoid a dead-flat fill, not enough to read
+   as decoration. */
+.dash::before {
+  content: "";
+  position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  opacity: 0.25;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.dash > * { position: relative; z-index: 1; }
+
+/* Dark mode: atmospheric navy→purple gradient + a sparse starfield instead
+   of the flat single-tone dark fill — inspired by Craft's Connections page
+   background. The starfield is the same feTurbulence trick as the light
+   noise above, but fed through a colorMatrix that clips everything except
+   the brightest noise peaks to transparent, then screened on top so only
+   scattered bright specks show (i.e. stars), not a gray haze. */
+.dark .dash {
+  background:
+    radial-gradient(ellipse 800px 650px at 12% 90%, rgba(139, 110, 255, 0.28), transparent 60%),
+    radial-gradient(ellipse 700px 600px at 88% 12%, rgba(99, 130, 255, 0.22), transparent 55%),
+    linear-gradient(155deg, #1b2350 0%, #241b4d 55%, #35225e 100%);
+}
+.dark .dash::before {
+  opacity: 0.55;
+  mix-blend-mode: screen;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='s'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' seed='5' stitchTiles='stitch' result='n'/%3E%3CfeColorMatrix in='n' type='matrix' values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 9 -8'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23s)'/%3E%3C/svg%3E");
 }
 
 .gen-bar {
@@ -232,10 +275,32 @@
 .gen-bar button:hover:not(:disabled) { transform: translateY(-1px); }
 .gen-bar button:disabled { opacity: 0.6; cursor: default; }
 
-/* Scenario gallery — personalized "quick start" cards above the thread,
-   see components/ScenarioGallery.tsx. Same --dash-* tokens as the rest of
-   this dashboard; card icon backgrounds use each scenario's own accent
-   color via color-mix (inline style), same treatment as /welcome's
+/* Suggestion chips — sits below a .gen-bar row (AgentChat.tsx uses
+   .gen-bar/.primary standalone with a chips row for its quick-action
+   presets; Dashboard.tsx's own brainstorm panel is Tailwind now, not
+   these classes, but AgentChat still needs them). */
+.gen-bar.has-suggestions { border-bottom: none; }
+.gen-suggestions {
+  display: flex; flex-wrap: wrap; gap: 6px; padding: 0 20px 10px; margin-top: -2px;
+  border-bottom: 1px solid var(--dash-border);
+}
+.gen-suggestions.primary { background: var(--dash-pill-bg); padding-top: 2px; }
+.gen-chip {
+  border: 1px solid var(--dash-border); background: var(--dash-card); color: var(--dash-muted);
+  border-radius: 999px; padding: 4px 11px; font-size: 11.5px; font-weight: 500; line-height: 1.4;
+  cursor: pointer; transition: border-color 0.15s ease, color 0.15s ease; font-family: inherit; white-space: nowrap;
+}
+.gen-chip:hover { border-color: var(--dash-accent); color: var(--dash-accent); }
+.gen-chip-refresh { border-style: dashed; opacity: 0.75; }
+.gen-chip-refresh:disabled { cursor: default; opacity: 0.5; }
+
+/* Scenario gallery — personalized "quick start" cards, see
+   components/ScenarioGallery.tsx. Not currently wired into Dashboard.tsx
+   (this branch kept its own FeatureHub/BrainstormPanel/TemplateGallery
+   home screen instead — see that merge decision), kept here unused rather
+   than dropped in case it gets wired in later. Same --dash-* tokens as the
+   rest of this dashboard; card icon backgrounds use each scenario's own
+   accent color via color-mix (inline style), same treatment as /welcome's
    STEP_COLORS icon chips — no image assets needed. */
 .scenario-gallery { padding: 20px 20px 4px; border-bottom: 1px solid var(--dash-border); flex-shrink: 0; }
 .scenario-gallery-head h2 {
@@ -275,8 +340,16 @@
 .scenario-card-kind { font-size: 11px; color: var(--dash-muted); }
 .scenario-card-cta { font-size: 11.5px; font-weight: 700; color: var(--dash-accent); }
 
-.dash-main { flex: 1; overflow-y: auto; padding: 24px 16px 40px; display: flex; justify-content: center; }
-.thread { width: 100%; max-width: 720px; display: flex; flex-direction: column; gap: 18px; }
+/* Was flex:1 + overflow-y:auto — a pinned-toolbar/scrollable-thread chat
+   layout. Everything above this is a normal stacked page section now
+   (hub, brainstorm+templates row), not fixed toolbars, so a flex-grow
+   region stretching to fill leftover viewport height just pushed the
+   actual messages down, leaving a dead gap between the row and the
+   first result. Plain block + margin auto, same as every other section —
+   also matches the left-sidebar app layout, which scrolls the whole page
+   area rather than nesting a second scroll container in here. */
+.dash-main { padding: 4px 16px 40px; }
+.thread { width: 100%; max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
 .empty-state { padding: 72px 8px 40px; }
 .empty-state .kicker {
   font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; color: var(--dash-accent);
@@ -291,7 +364,7 @@
 .msg { display: flex; flex-direction: column; max-width: 82%; }
 .msg.from-user { align-self: flex-end; align-items: flex-end; }
 .msg.from-bot { align-self: flex-start; align-items: flex-start; }
-.bubble { border-radius: var(--radius-lg); padding: 12px 16px; font-size: 14.5px; line-height: 1.5; }
+.bubble { border-radius: var(--radius-lg); padding: 12px 16px; font-size: 14.5px; line-height: 1.5; box-shadow: 0 3px 14px -6px rgba(15, 27, 60, 0.14); }
 .msg.from-user .bubble { background: var(--dash-bubble-user); color: var(--dash-bubble-user-text); border-bottom-right-radius: 4px; }
 .msg.from-bot .bubble { background: var(--dash-card); border: 1px solid var(--dash-border); border-bottom-left-radius: 4px; }
 

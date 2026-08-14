@@ -59,3 +59,32 @@ export async function generateContentAction(
   await addGeneration(user.id, kind, direction, result);
   return { result };
 }
+
+export type Suggestion = { label: string; text: string };
+
+// Live, search-grounded suggestion chips for the dashboard's ToolBar —
+// replaces a static hand-written list with "what's actually trending for
+// this occupation right now" (apps/api/app/topic_suggestions.py). Returns
+// null on any failure (no role set, no LLM key, search/parse failure) —
+// caller falls back to its own static defaults, same as every other
+// generator in this codebase never faking a result.
+export async function getSuggestionsAction(role: string, lang: "zh" | "en"): Promise<Suggestion[] | null> {
+  role = role.trim();
+  if (!role) return null;
+
+  const apiBase = process.env.API_BASE_URL || "http://localhost:8001";
+  let res: Response;
+  try {
+    res = await fetch(`${apiBase}/suggestions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role, lang }),
+      cache: "no-store",
+    });
+  } catch {
+    return null;
+  }
+  if (!res.ok) return null;
+  const data = await res.json();
+  return Array.isArray(data.suggestions) && data.suggestions.length ? data.suggestions : null;
+}
