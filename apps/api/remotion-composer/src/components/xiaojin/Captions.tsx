@@ -1,8 +1,5 @@
 /**
- * Kinetic captions — karaoke color reveal (which word is being spoken right
- * now) plus a "pop" scale-bounce on each word at the moment its turn comes
- * up (2026-08-14: requested as a livelier alternative to the plain color
- * sweep — reads closer to CapCut/TikTok-style bouncy captions).
+ * Kinetic captions with character-by-character karaoke color reveal.
  *
  * Deliberately does NOT use @remotion/captions' createTikTokStyleCaptions —
  * video-studio's CLAUDE-v2.md documents (§5b) that it merges all tokens into
@@ -13,8 +10,13 @@
  * Progress within a phrase is `interpolate(ms, [startMs, endMs], [0, chars.length])`,
  * floored to a highlighted character count — same formula as their
  * `Captions.tsx` v4 reference implementation.
+ *
+ * (2026-08-14: a word-by-word "pop" bounce variant was tried and reverted —
+ * didn't fit the brand style as a blanket effect on every word. If a
+ * keyword-only emphasis pop is wanted later, it needs a way to mark WHICH
+ * words get it, not every word — flag this back if picking that up again.)
  */
-import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { useCurrentFrame, useVideoConfig } from "remotion";
 import { CAPTION_BOTTOM, ColorMode, PALETTES, W } from "./theme";
 
 export interface CaptionPhrase {
@@ -95,22 +97,7 @@ export const Captions: React.FC<CaptionsProps> = ({
     snappedProgress = lastSpace === -1 ? 0 : lastSpace + 1;
   }
 
-  // Word spans, not chars — snappedProgress already only ever lands on a
-  // word boundary (Fix C36 above), so every character in a word shares the
-  // same highlight state; grouping into one span per word is both simpler
-  // and what the pop animation below needs (it bounces per-word, not
-  // per-character). Trailing space(s) stay attached to the word they
-  // follow so word-to-word layout spacing is unchanged from the old
-  // char-by-char rendering.
-  const words: { start: number; text: string }[] = [];
-  for (let i = 0; i < active.text.length; ) {
-    let j = i;
-    while (j < active.text.length && active.text[j] !== " ") j++;
-    while (j < active.text.length && active.text[j] === " ") j++;
-    words.push({ start: i, text: active.text.slice(i, j) });
-    i = j;
-  }
-
+  const chars = active.text.split("");
   const boxWidth = position?.width ?? maxWidth;
 
   return (
@@ -136,45 +123,19 @@ export const Captions: React.FC<CaptionsProps> = ({
           lineHeight: 1.3,
         }}
       >
-        {words.map((w, wi) => {
-          const highlighted = w.start < snappedProgress;
-          // Every word pops together at phrase start in the no-sweep case
-          // (the whole phrase is already fully highlighted from frame 0
-          // there, so a staggered per-word pop would look out of sync with
-          // that "instant" color state). Otherwise each word's own pop
-          // timing follows the same char-position -> ms formula `progress`
-          // above already uses, so the bounce lands exactly when that
-          // word's color reveal does.
-          const wordStartMs =
-            duration < noSweepBelowMs
-              ? active.startMs
-              : active.startMs + (w.start / active.text.length) * duration;
-          const localFrame = frame - (wordStartMs / 1000) * fps;
-          // Triangular overshoot, not spring() — an exact, predictable peak
-          // (1.32x at frame 6) matters more here than physically-accurate
-          // bounce, and clamped extrapolation means a word that hasn't had
-          // its turn yet (localFrame < 0) or is long past it (localFrame >
-          // 14) both settle cleanly at scale 1, never left mid-pop.
-          const pop = interpolate(localFrame, [0, 6, 14], [1, 1.32, 1], {
-            extrapolateLeft: "clamp",
-            extrapolateRight: "clamp",
-          });
-          return (
-            <span
-              key={wi}
-              style={{
-                display: "inline-block",
-                fontFamily: font,
-                fontSize,
-                fontWeight: 700,
-                color: highlighted ? palette.captionHighlight : palette.captionText,
-                transform: `scale(${pop})`,
-              }}
-            >
-              {w.text}
-            </span>
-          );
-        })}
+        {chars.map((ch, i) => (
+          <span
+            key={i}
+            style={{
+              fontFamily: font,
+              fontSize,
+              fontWeight: 700,
+              color: i < snappedProgress ? palette.captionHighlight : palette.captionText,
+            }}
+          >
+            {ch}
+          </span>
+        ))}
       </div>
     </div>
   );
