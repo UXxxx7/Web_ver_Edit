@@ -66,6 +66,36 @@ _STAGE_LABELS = {
 }
 
 
+def _order_broll_before_style(ops: list[dict]) -> list[dict]:
+    """Guarantee every insert_broll runs before every apply_style.
+
+    apply_style renders the graphic cards onto the video; insert_broll's
+    cutaway then overlays the b-roll FULL-CANVAS on top (see _composite_broll's
+    `overlay=0:0`). So if apply_style ran first, any card scheduled during a
+    b-roll window is occluded and only its tail (after the b-roll ends) is ever
+    visible — the "card flashes for ~1s right after the b-roll" bug. This is
+    the order the presenter handshake already assumes anyway (insert_broll
+    writes _presenter.json, apply_style reads it), so running apply_style first
+    also silently disables the presenter PIP.
+
+    Minimal, order-preserving: only the insert_broll ops that currently sit
+    AFTER the first apply_style are moved, to just before that apply_style.
+    Every other op — and the relative order among the moved b-rolls — is
+    untouched. No-op unless an insert_broll actually sits after an apply_style.
+    """
+    first_style = next((i for i, o in enumerate(ops) if o.get("type") == "apply_style"), None)
+    if first_style is None:
+        return ops
+    late_brolls = [i for i in range(first_style + 1, len(ops)) if ops[i].get("type") == "insert_broll"]
+    if not late_brolls:
+        return ops
+    late_set = set(late_brolls)
+    moved = [ops[i] for i in late_brolls]
+    rest = [o for i, o in enumerate(ops) if i not in late_set]
+    insert_at = next(i for i, o in enumerate(rest) if o.get("type") == "apply_style")
+    return rest[:insert_at] + moved + rest[insert_at:]
+
+
 def run_talking_head_pipeline(job: Job) -> dict[str, Any]:
     """按编辑计划用 OpenMontage 正式工具执行编辑，输出 preview.mp4。
 
@@ -122,7 +152,12 @@ def run_talking_head_pipeline(job: Job) -> dict[str, Any]:
         [op for op in video_ops if op.get("type") == "remove_segment"],
         key=lambda o: _num(o.get("start_seconds")) or 0.0, reverse=True,
     )
-    others = [op for op in video_ops if op.get("type") != "remove_segment"]
+    # insert_broll must run before apply_style, or the b-roll cutaway overlays
+    # (full-canvas) on top of already-rendered cards and occludes them — see
+    # _order_broll_before_style. Other ops keep their order.
+    others = _order_broll_before_style(
+        [op for op in video_ops if op.get("type") != "remove_segment"]
+    )
     ordered_ops = removes + others
     # presenter 模式：同一方案里 insert_broll 与 apply_style 并存时，让 b-roll 用
     # cutaway 铺满卡片、人物交给模板在下方渲染（见 _op_insert_broll / _op_apply_style）。
