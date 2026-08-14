@@ -40,6 +40,10 @@ _REFERENCE_PATH = Path(__file__).parent / "prompts" / "croll_reference_scripts.j
 _INSURANCE_LIBRARY_PATH = Path(__file__).parent / "prompts" / "insurance_scripts_extended.json"
 
 _DEFAULT_DURATION_S = 60
+# 用户要求（2026-08-14，撞到真实 HeyGen 900s 轮询超时后）：自动算出来的
+# 目标时长不要超过 1 分钟，即使命中险种的样本库平均时长更长——见下面
+# write_script 里唯一用到这个常量的地方的详细说明。
+_MAX_AUTO_DURATION_S = 60
 
 # hint 里出现这些词就判定命中对应险种。顺序有讲究：越具体的越先判——"定期寿险"/
 # "终身寿险"各自的关键词必须排在泛化的"寿险"前面，否则"我想讲定期寿险"会先被
@@ -187,6 +191,15 @@ def write_script(image_path: str, lang: str = "zh", hint: str = "",
         durations = [s["duration_seconds"] for s in (same_lang_in_pool or examples_list)
                      if s.get("duration_seconds")]
         duration_s = round(sum(durations) / len(durations)) if durations else _DEFAULT_DURATION_S
+        # 封顶 _MAX_AUTO_DURATION_S——真实撞到过（2026-08-14）：命中险种自动
+        # 定的目标时长（78-102s，样本库实测平均）比旧库固定 60s 长不少，喂
+        # 给 HeyGen 生成的成片对应变长，实测 98s 的脚本让 HeyGen 轮询
+        # 900s（heygen_croll.poll_and_download 给的上限）都没等到 completed，
+        # 只能 timeout 收场——不是轮询逻辑的 bug（真的收到 status=="failed"
+        # 会走另一条分支立即报错，这次是全程停在"处理中"直到超时）,是
+        # HeyGen 侧渲染更长脚本本来就更慢。只封顶自动算出来的这个分支，
+        # 调用方显式传 duration_s 的路径不受影响——那是刻意保留的覆盖口。
+        duration_s = min(duration_s, _MAX_AUTO_DURATION_S)
         if categories:
             logger.info(f"croll_script: hint 命中险种 {categories}，目标时长自动定为 {duration_s}s")
 
