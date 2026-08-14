@@ -94,6 +94,7 @@ export function AgentChat() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [arm, setArm] = useState<Arm>("arm_a");
   const [sending, setSending] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const idCounter = useRef(0);
   const nextId = () => `m${Date.now()}-${idCounter.current++}`;
@@ -114,9 +115,11 @@ export function AgentChat() {
     fileInputRef.current?.click();
   }
 
-  function handleFileChosen(e: React.ChangeEvent<HTMLInputElement>) {
-    const chosen = Array.from(e.target.files ?? []);
-    e.target.value = "";
+  // Shared by the 📎 button's hidden <input> (FileList from an <input
+  // onChange>) and drag-and-drop (FileList from a DataTransfer) — same
+  // staging rules either way, so dropping a video behaves identically to
+  // clicking attach and picking it.
+  function addFiles(chosen: File[]) {
     if (chosen.length === 0) return;
 
     setAssets((prev) => {
@@ -138,6 +141,18 @@ export function AgentChat() {
       }
       return next;
     });
+  }
+
+  function handleFileChosen(e: React.ChangeEvent<HTMLInputElement>) {
+    const chosen = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    addFiles(chosen);
+  }
+
+  function handleDrop(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setDragActive(false);
+    addFiles(Array.from(e.dataTransfer.files ?? []));
   }
 
   function setAssetRole(id: string, role: Role) {
@@ -280,7 +295,25 @@ export function AgentChat() {
   }
 
   return (
-    <div className="dash">
+    <div
+      className={`dash agent-dropzone${dragActive ? " is-drag-active" : ""}`}
+      onDragOver={(e) => {
+        e.preventDefault();
+        setDragActive(true);
+      }}
+      onDragLeave={(e) => {
+        // Only clear on leaving the container itself, not a child element —
+        // dragging over the compose bar/thread fires leave+enter on every
+        // child boundary crossed, which would otherwise flicker the overlay.
+        if (e.currentTarget === e.target) setDragActive(false);
+      }}
+      onDrop={handleDrop}
+    >
+      {dragActive && (
+        <div className="agent-dropzone-overlay" aria-hidden>
+          <p>📎 放低嚟上載</p>
+        </div>
+      )}
       <main className="dash-main">
         <div className="thread">
           {messages.length === 0 && (
