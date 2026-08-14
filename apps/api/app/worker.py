@@ -258,10 +258,8 @@ def revise_plan(job_id: str, feedback: str) -> None:
             new_plan = plan_video(job.edit_request, video_path, history=history,
                                   transcript=transcript)
         except Exception as e:
-            logger.warning(f"L2 修订规划失败，回退 L1.5: {e}")
-            from .llm_planner import plan_edit
-
-            new_plan = plan_edit(f"{job.edit_request}。补充：{feedback}")
+            logger.warning(f"L2 修订规划失败，回退默认方案: {e}")
+            new_plan = _l1_5_fallback_plan(f"{type(e).__name__}: {e}")
 
         update_job_fields(
             job_id,
@@ -821,10 +819,33 @@ def _plan_clip_factory(job: Any, wa: Any = None) -> None:
     logger.info(f"clip-factory 规划完成: job {job.id}, {len(candidates)} 条候选")
 
 
+def _l1_5_fallback_plan(reason: str) -> dict:
+    """L2 规划直接抛异常时的最后一道安全网。
+
+    这里原本 `from .llm_planner import plan_edit`——但 app/llm_planner.py 从来
+    没存在过（不是被删除，是从没写过：`git log --all` 对它没有任何记录），所以
+    只要 L2 抛异常就必然 ModuleNotFoundError，把本该"降级但不中断"的安全网变成
+    了确定的任务失败。多次实测触发场景：agent_editor.py 内部 LLM 调用瞬时故障
+    （Gemini 503/超时——llm_client.py 已经在 HTTP 层做过重试，走到这里说明重试
+    预算也耗尽了），跟"输入有问题"无关，所以不值得再造一个关键词规划器去猜用户
+    想要什么。改用跟 agent_editor._default_plan 同一哲学、但完全本地、零外部
+    依赖（不读 manifest、不碰网络）的确定性默认方案——保证这条路径永远不会再抛
+    异常，是真正的地板。"""
+    plan = [{"type": "remove_filler"}, {"type": "remove_silences"}, {"type": "add_subtitles"}]
+    return {
+        "edit_operations": plan,
+        "summary": (f"未能生成定制剪辑方案（{reason}），已按默认方案处理"
+                    "（去口误、去静音、加字幕）。如需更精细的剪辑，请确认后用"
+                    "「修改要求」重新说明。"),
+        "edit_decisions": [],
+        "review_findings": [],
+    }
+
+
 def _run_llm_planner(job: Any, wa: Any = None) -> None:
     """用 L2 agent 规划编辑方案（读 manifest/skill + tool-calling + 自审 + schema 校验）。
 
-    agent 出错时回退到 L1.5 关键词/结构化规划器，保证任务不中断。
+    agent 出错时回退到本地确定性默认方案（_l1_5_fallback_plan），保证任务不中断。
     传入 wa 时会在转录/规划两个较慢阶段前回传进度消息（进度预览）。
     """
     # clip-factory 意图分类——放在最前面，比 Arm B/L2 都早：命中就整条短路，
@@ -892,18 +913,8 @@ def _run_llm_planner(job: Any, wa: Any = None) -> None:
         plan = plan_video(request, video_path, transcript=transcript,
                           source_facts=source_facts)
     except Exception as e:
-        logger.warning(f"L2 agent 规划失败，回退 L1.5: {e}")
-        from .llm_planner import plan_edit
-
-        duration = None
-        try:
-            from .pipeline_runner import _probe_duration
-
-            if input_path.exists():
-                duration = _probe_duration(input_path) or None
-        except Exception:
-            duration = None
-        plan = plan_edit(job.edit_request, video_duration=duration)
+        logger.warning(f"L2 agent 规划失败，回退默认方案: {e}")
+        plan = _l1_5_fallback_plan(f"{type(e).__name__}: {e}")
 
     update_job_fields(job.id, planned_edit=json.dumps(plan, ensure_ascii=False))
     logger.info(f"规划完成: {json.dumps(plan, ensure_ascii=False)[:200]}")
