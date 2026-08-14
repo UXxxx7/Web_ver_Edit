@@ -41,6 +41,20 @@ export type EditJob = {
   updated_at: string | null;
 };
 
+// GET /users/{id}/videos — the account-level "My Videos" source (apps/api's
+// job_manager.list_done_jobs_for_user), replacing the old approach of
+// filtering this browser's lib/recent-jobs.ts localStorage list down to
+// DONE ones. A trimmed-down cousin of EditJob: only what MyVideos.tsx's
+// cards actually render, not the full job shape (no status/preview_path/
+// planned_edit — server only returns DONE jobs here, so those don't apply).
+export type SavedVideo = {
+  job_id: string;
+  edit_request: string;
+  pipeline: string;
+  final_path: string | null;
+  created_at: string | null;
+};
+
 export function basename(path: string | null): string | null {
   if (!path) return null;
   // Split on both separators — apps/api runs on Windows too, where

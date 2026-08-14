@@ -34,6 +34,7 @@ from .job_manager import (
     get_job,
     get_jobs_by_status,
     get_or_create_user,
+    list_done_jobs_for_user,
     message_exists,
     save_message,
     update_job_fields,
@@ -508,6 +509,32 @@ async def get_onboarding_status(wa_number: str):
     return {
         "job_count": count_jobs_for_user(user.id),
         "voice_cloned": bool(user.elevenlabs_voice_id),
+    }
+
+
+@router.get("/users/{wa_number}/videos")
+async def get_user_videos(wa_number: str):
+    """帳號級「我的影片」清單——DONE 嘅 job，新到舊。
+
+    之前 apps/web 嘅 MyVideos.tsx 冇呢個 endpoint 可以攞,淨係靠瀏覽器
+    localStorage 記低邊啲 job id 見過(lib/recent-jobs.ts),換返第二部機/
+    第二個瀏覽器,或者清咗瀏覽器資料,啲片就"唔見咗"(其實服務器度仲喺度,
+    淨係前端唔知去邊度攞)。而家改用 user_id 直接查,同 wa_number 嘅對應
+    關係同 /croll、/jobs 建 job 嗰陣 upstream.set("wa_number", user.id) 果條
+    路一致(apps/web 個 user.id 本身就係呢度嘅 wa_number)。"""
+    user = get_or_create_user(wa_number)
+    jobs = list_done_jobs_for_user(user.id)
+    return {
+        "videos": [
+            {
+                "job_id": j.id,
+                "edit_request": j.edit_request,
+                "pipeline": j.pipeline,
+                "final_path": j.final_path,
+                "created_at": j.created_at.isoformat() if j.created_at else None,
+            }
+            for j in jobs
+        ]
     }
 
 
