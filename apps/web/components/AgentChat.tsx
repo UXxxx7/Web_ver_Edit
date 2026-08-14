@@ -52,6 +52,42 @@ function mediaOf(file: File): Media | null {
 
 const ROLE_LABEL: Record<Role, string> = { main: "主视频", reference: "参考风格", broll: "B-roll" };
 
+// Hand-drawn line icons, same treatment as Dashboard/FeatureHub/
+// TemplateGallery — no emoji anywhere in the app.
+const ICONS = {
+  attach: "M17.5 7.5 9 16a3 3 0 1 1-4.24-4.24L13.5 3a4.5 4.5 0 1 1 6.36 6.36L11.5 17.5",
+  video: "M4 6.5A1.5 1.5 0 0 1 5.5 5h9A1.5 1.5 0 0 1 16 6.5v11A1.5 1.5 0 0 1 14.5 19h-9A1.5 1.5 0 0 1 4 17.5v-11Z M16 9.5l4-2.3v9.6l-4-2.3",
+  image: "M4 6.5A1.5 1.5 0 0 1 5.5 5h13A1.5 1.5 0 0 1 20 6.5v11a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5v-11Z M4 15l4.5-4.5a1.5 1.5 0 0 1 2.1 0L14 14M14 14l1.4-1.4a1.5 1.5 0 0 1 2.1 0L20 15 M9.5 9a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z",
+  audio: "M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z M6 11v1a6 6 0 0 0 12 0v-1 M12 18v3M9 21h6",
+  captions: "M4 8.5A1.5 1.5 0 0 1 5.5 7h13A1.5 1.5 0 0 1 20 8.5v5A1.5 1.5 0 0 1 18.5 15H10l-4 3v-3H5.5A1.5 1.5 0 0 1 4 13.5v-5Z M7.5 10v2.2M10.5 9.3v3.6M13.5 10v2.2M16.5 9.3v3.6",
+  volumeUp: "M4 9v6h4l5 5V4L8 9H4Z M15.5 8.5a5 5 0 0 1 0 7",
+  volumeMute: "M4 9v6h4l5 5V4L8 9H4Z M16 9l4 4m0-4-4 4",
+};
+
+function Icon({ path, size = 13 }: { path: string; size?: number }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="inline-block shrink-0 align-[-2.5px]">
+      <path d={path} />
+    </svg>
+  );
+}
+
+// Quick-action chips — fill the compose text with a ready instruction so a
+// user doesn't have to phrase "add captions" or "clean up the audio"
+// themselves. Audio-cleanup options name the actual presets
+// tools/audio/audio_enhance.py already implements (clean_speech,
+// noise_reduce, podcast), not invented ones — the planner has a real
+// filter chain to map each phrase onto. Caption styles map onto the
+// captions.* fields in contracts/style_params.schema.json (position,
+// karaoke, highlightColor) via the planner's own free-text understanding,
+// same mechanism as any other edit_request — no new backend plumbing.
+const QUICK_ACTIONS = [
+  { icon: ICONS.captions, label: "TikTok字幕", text: "加字幕，用TikTok風格：大隻黃色字，逐隻字highlight，擺喺畫面中下方。" },
+  { icon: ICONS.captions, label: "簡約字幕", text: "加字幕，簡約風格：細粒白色字，喺畫面最底，唔使highlight效果。" },
+  { icon: ICONS.volumeUp, label: "人聲清晰", text: "洗靚把聲：人聲清晰，減走吵耳嘅背景雜音（clean_speech）。" },
+  { icon: ICONS.volumeMute, label: "強力降噪", text: "把聲環境好嘈，幫我強力降噪（noise_reduce）。" },
+] as const;
+
 export function AgentChat() {
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [text, setText] = useState("");
@@ -259,7 +295,11 @@ export function AgentChat() {
               return (
                 <div key={msg.id} className="msg from-user">
                   <div className="bubble">
-                    {msg.attachmentName && <div className="mb-1 text-xs opacity-75">📎 {msg.attachmentName}</div>}
+                    {msg.attachmentName && (
+                      <div className="mb-1 flex items-center gap-1 text-xs opacity-75">
+                        <Icon path={ICONS.attach} size={12} /> {msg.attachmentName}
+                      </div>
+                    )}
                     {msg.text || <span className="opacity-75">(no message)</span>}
                   </div>
                 </div>
@@ -281,8 +321,9 @@ export function AgentChat() {
         <div className="border-t border-border px-5 py-3 flex flex-col gap-2">
           {assets.map((a) => (
             <div key={a.id} className="flex flex-wrap items-center gap-2 text-xs">
-              <span className="opacity-80">
-                {a.media === "video" ? "🎬" : a.media === "image" ? "🖼️" : "🎵"} {a.file.name}
+              <span className="flex items-center gap-1 opacity-80">
+                <Icon path={a.media === "video" ? ICONS.video : a.media === "image" ? ICONS.image : ICONS.audio} size={13} />
+                {a.file.name}
               </span>
               <select
                 value={a.role}
@@ -332,10 +373,20 @@ export function AgentChat() {
         </div>
       )}
 
+      {hasVideo && (
+        <div className="gen-suggestions">
+          {QUICK_ACTIONS.map((a) => (
+            <button key={a.label} type="button" className="gen-chip" onClick={() => setText(a.text)}>
+              <Icon path={a.icon} size={12} /> {a.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="gen-bar primary">
         <input ref={fileInputRef} type="file" multiple accept="video/*,image/*,audio/*" className="hidden" onChange={handleFileChosen} />
-        <button type="button" className="gen-bar-icon" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18 }} onClick={handleAttachClick} title="Attach video, photo, or voice sample">
-          📎
+        <button type="button" className="gen-bar-icon" style={{ background: "none", border: "none", cursor: "pointer" }} onClick={handleAttachClick} title="Attach video, photo, or voice sample">
+          <Icon path={ICONS.attach} size={18} />
         </button>
         <input
           type="text"

@@ -25,6 +25,7 @@ from pydantic import BaseModel
 
 from .content_idea import generate_content_idea
 from .shooting_script import generate_shooting_script
+from .topic_suggestions import generate_topic_suggestions
 from .video_script import generate_video_script
 from .webhook import _recover_orphaned_jobs, router as jobs_router
 
@@ -100,6 +101,20 @@ def shooting_scripts(req: BrainstormRequest):
 def content_ideas(req: BrainstormRequest):
     direction = _augment_direction(req.direction, req.lang, req.brand_voice_notes)
     return {"idea": generate_content_idea(direction, req.lang)}
+
+
+class SuggestionsRequest(BaseModel):
+    role: str
+    lang: str = "zh"
+
+
+@app.post("/suggestions")
+def suggestions(req: SuggestionsRequest):
+    """Occupation -> a few live, search-grounded direction suggestions for
+    the dashboard's chips. {"suggestions": null} (not an error) when the
+    role is blank or generation fails — caller falls back to static
+    defaults, same "never fake a result" contract as the other 3 routes."""
+    return {"suggestions": generate_topic_suggestions(req.role, req.lang)}
 
 
 # ---------------------------------------------------------------------------
