@@ -3169,9 +3169,16 @@ def _sparse_gap_quote_candidates(gaps: list[tuple[int, int]], segments: list[dic
     可讲的内容，LLM 卡在"没资格用 quote"和"没资格用 topic_card"之间，三轮
     都在正确地拒绝硬造内容，而不是真的偷懒。这里退一步：不再要求"striking"，
     机械选这段空档时间里最长的一整句转写原文（越长的句子越可能是实质性
-    表达，不是语气词/过渡句）。找不到任何一句能塞进 QuoteCard 80 字符上限
-    的完整句时，这个空档直接跳过——宁可保持"只有说话人+字幕"，也不要插入
-    一句被腰斩、读不完整的话。
+    表达，不是语气词/过渡句）。找不到任何一句能塞进字符上限的完整句时，
+    这个空档直接跳过——宁可保持"只有说话人+字幕"，也不要插入一句被腰斩、
+    读不完整的话。
+
+    字符上限从 80 放宽到 200（2026-08-14，用户反馈稀疏空档太常见地保持
+    "只有说话人+字幕"，画面偏空）：核实过 QuoteCard.tsx 本身没有硬性长度
+    限制——它按 text.length 自动分三档缩小字号（>40 用 44px），文字在
+    900px 宽的卡片里正常换行，不会溢出。80 字符是规划阶段过度保守的猜测，
+    不是渲染约束；真正常见的自然口语整句大多在 200 字符以内，放宽上限后
+    这条兜底能命中的空档会明显变多，不需要动 QuoteCard 组件本身。
     """
     candidates = []
     for gap_start, gap_end in gaps:
@@ -3179,7 +3186,7 @@ def _sparse_gap_quote_candidates(gaps: list[tuple[int, int]], segments: list[dic
         best_seg = None
         for seg in segments:
             text = str(seg.get("text", "")).strip()
-            if not text or len(text) > 80:
+            if not text or len(text) > 200:
                 continue
             try:
                 start_s = float(seg.get("start", 0))

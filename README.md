@@ -30,6 +30,7 @@ gracefully with "couldn't generate" rather than fake content.
 cd apps/api
 python3.12 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
+# optional: pip install -r requirements-optional.txt  (forced-alignment caption refinement — pulls in torch, ~2GB+)
 cp .env.example .env   # optionally fill in LLM_API_KEY / CONTENT_IDEA_GEMINI_KEY
 uvicorn app.main:app --reload --port 8001
 ```

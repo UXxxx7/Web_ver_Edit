@@ -308,6 +308,17 @@ def _chat(config, messages, tools=None, json_mode=False):
             _logging.getLogger(__name__).warning(f"L2 LLM 429，{wait}s 后重试")
             _time.sleep(wait)
             continue
+        if resp.status_code in (500, 502, 503, 504) and attempt < 3:
+            # 上游服务器瞬时不可用(Gemini 503 UNAVAILABLE / 网关 5xx)——短退避重试。
+            # 2026-08-14 事故:一次 503 直接 raise_for_status() 抛出 → L2 规划失败 →
+            # 落穿到 llm_planner 兜底。这类是几秒就恢复的过载,不该让整条规划失败。
+            # 与 429 分开:429 是配额窗口要等更久(25s 档),5xx 短退避即可。
+            wait = 4 * (attempt + 1)
+            import logging as _logging
+            _logging.getLogger(__name__).warning(
+                f"L2 LLM {resp.status_code} 服务器瞬时不可用，{wait}s 后重试({attempt + 1}/3)")
+            _time.sleep(wait)
+            continue
         if resp.status_code >= 400 and attempt < 3 and (
                 "Upstream request failed" in resp.text or "upstream_error" in resp.text):
             # 网关上游瞬时故障被包装成 4xx(实测同一请求成功率仅 20-60%)——
