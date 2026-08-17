@@ -257,10 +257,13 @@ def _simulate(name, args, duration):
     return {"ok": True, "estimated_duration_seconds": round(d, 1)}, d
 
 
-# 原生 provider 端点（无 LLM_BASE_URL / 中转站时兜底直连，和 llm_planner.py 的
-# provider 路由保持一致）。两者都是 OpenAI 兼容的 chat/completions + function-calling，
-# 跟这里的 tool-calling 循环直接兼容；claude 的原生 Messages API 工具格式不同，
-# 暂不在此路径支持——要用就配 LLM_BASE_URL 走中转站。
+# 原生 provider 端点（无 LLM_BASE_URL / 中转站时兜底直连）。OpenAI 兼容的
+# chat/completions + function-calling，跟这里的 tool-calling 循环直接兼容；
+# claude 的原生 Messages API 工具格式不同，暂不在此路径支持——要用就配
+# LLM_BASE_URL 走中转站。
+# （历史注：这里以前提过"和 llm_planner.py 的 provider 路由保持一致"——那句
+# 话是对的，llm_planner.py 一直都在，只是有段时间在这条分支的 checkout 里
+# 因为没提交而"看起来"不存在，见 worker.py._l1_5_fallback_plan 的修订记录。）
 _NATIVE_PROVIDER_ENDPOINTS = {
     "deepseek": "https://api.deepseek.com/chat/completions",
     "openai": "https://api.openai.com/v1/chat/completions",

@@ -1,18 +1,20 @@
 "use client";
 
-// Real feature, not a placeholder: apps/api has no GET /jobs (list-by-user)
-// endpoint yet, so this reads the same client-side recent-jobs list
-// AgentChat already writes to (lib/recent-jobs.ts), fetches each job's
-// current status, and shows only the ones that finished rendering. Same
-// fileUrl/basename pattern AgentJobBubble.tsx uses for its own preview —
-// duplicated locally rather than importing a private helper from that file.
+// The account-level save area: every video that finished rendering in
+// Agent lands here (GET /users/{id}/videos → apps/api's
+// job_manager.list_done_jobs_for_user), independent of which browser/
+// device you're on. Editing is a deliberate opt-in from here — click
+// "Edit" (or select several and "Add to editor") to send a video to the
+// Editor page's work queue (lib/editor-queue.ts); Editor no longer
+// auto-lists every job on its own, which used to duplicate this list.
+// Editing re-renders the SAME job in place (apps/api's manual editor has
+// no multi-clip merge), so the updated result reappears right here, in
+// the same card, next time this list is fetched — not as a new entry.
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { getEditJobStatus } from "@/app/(app)/agent/actions";
+import { getMyVideosAction } from "@/app/(app)/agent/actions";
 import { addToEditorQueue } from "@/lib/editor-queue";
-import { getRecentJobs } from "@/lib/recent-jobs";
-import { basename, type EditJob } from "@/lib/edit-jobs";
+import { basename, type SavedVideo } from "@/lib/edit-jobs";
 
 function fileUrl(jobId: string, path: string | null) {
   const name = basename(path);
@@ -39,41 +41,45 @@ function ShareButton({ url }: { url: string }) {
 
 export function MyVideos() {
   const router = useRouter();
-  const [jobs, setJobs] = useState<EditJob[] | null>(null);
+  const [videos, setVideos] = useState<SavedVideo[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
-  const toggleSelect = (jobId: string) => {
-    setSelected((s) => {
-      const next = new Set(s);
+  useEffect(() => {
+    getMyVideosAction().then((result) => {
+      if (result.ok) setVideos(result.data);
+      else setError(result.error);
+    });
+  }, []);
+
+  function toggleSelected(jobId: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
       if (next.has(jobId)) next.delete(jobId);
       else next.add(jobId);
       return next;
     });
-  };
-
-  const sendToEditor = () => {
-    addToEditorQueue(Array.from(selected));
-    router.push("/editor");
-  };
-
-  useEffect(() => {
-    const ids = getRecentJobs();
-    // Promise.all([]) resolves immediately to [] — no need for a special
-    // empty-list branch, which would otherwise call setState synchronously
-    // in the effect body (react-hooks/set-state-in-effect).
-    Promise.all(ids.map((id) => getEditJobStatus(id))).then((results) => {
-      const done = results
-        .filter((r) => r.ok && r.data.status === "DONE" && !!r.data.final_path)
-        .map((r) => (r as { ok: true; data: EditJob }).data);
-      setJobs(done);
-    });
-  }, []);
-
-  if (jobs === null) {
-    return <div className="px-4 py-16 text-center text-[13.5px] text-muted-foreground sm:px-8">載入緊…</div>;
   }
 
-  if (jobs.length === 0) {
+  function editOne(jobId: string) {
+    addToEditorQueue(jobId);
+    router.push("/editor");
+  }
+
+  function editSelected() {
+    selected.forEach((jobId) => addToEditorQueue(jobId));
+    router.push("/editor");
+  }
+
+  if (videos === null) {
+    return (
+      <div className="px-4 py-16 text-center text-[13.5px] text-muted-foreground sm:px-8">
+        {error ? error : "載入緊…"}
+      </div>
+    );
+  }
+
+  if (videos.length === 0) {
     return (
       <div className="px-4 py-16 sm:px-8">
         <div className="mx-auto max-w-md rounded-2xl border border-border bg-card p-8 text-center shadow-[0_3px_16px_-6px_rgba(15,27,60,0.12)]">
@@ -81,12 +87,12 @@ export function MyVideos() {
           <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">
             上載一條片同AI講點剪，完成之後會自動喺呢度出現。
           </p>
-          <Link
+          <a
             href="/agent"
             className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-foreground px-5 py-2.5 text-[13.5px] font-semibold text-background transition-transform hover:-translate-y-px"
           >
             去Agent剪片
-          </Link>
+          </a>
         </div>
       </div>
     );
@@ -95,38 +101,53 @@ export function MyVideos() {
   return (
     <div className="px-4 py-8 pb-24 sm:px-8">
       <div className="mx-auto max-w-5xl">
-        <h2 className="text-2xl font-bold tracking-tight text-foreground">我的影片</h2>
-        <p className="mt-1 text-[13px] text-muted-foreground">
-          已經完成嘅片，可以隨時下載、分享，或者揀幾條加入Editor再加工。
-        </p>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight text-foreground">我的影片</h2>
+            <p className="mt-1 text-[13px] text-muted-foreground">已經完成嘅片，可以隨時下載、分享，或者揀返去編輯器再調整。</p>
+          </div>
+          {selected.size > 0 && (
+            <button
+              type="button"
+              onClick={editSelected}
+              className="rounded-lg bg-foreground px-4 py-2 text-[13px] font-semibold text-background transition-transform hover:-translate-y-px"
+            >
+              加入編輯器（{selected.size}）
+            </button>
+          )}
+        </div>
 
         <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {jobs.map((job) => {
-            const url = fileUrl(job.job_id, job.final_path);
-            const isSelected = selected.has(job.job_id);
+          {videos.map((video) => {
+            const url = fileUrl(video.job_id, video.final_path);
+            const isSelected = selected.has(video.job_id);
             return (
               <div
-                key={job.job_id}
-                className={`relative overflow-hidden rounded-2xl border bg-card shadow-[0_3px_16px_-6px_rgba(15,27,60,0.12)] transition-colors ${
+                key={video.job_id}
+                className={`overflow-hidden rounded-2xl border bg-card shadow-[0_3px_16px_-6px_rgba(15,27,60,0.12)] transition-colors ${
                   isSelected ? "border-primary" : "border-border"
                 }`}
               >
-                <button
-                  type="button"
-                  onClick={() => toggleSelect(job.job_id)}
-                  aria-label={isSelected ? "取消選擇" : "選擇呢條片"}
-                  className={`absolute right-2.5 top-2.5 z-10 flex h-6 w-6 items-center justify-center rounded-md border-2 transition-colors ${
-                    isSelected ? "border-primary bg-primary text-primary-foreground" : "border-white/70 bg-black/30 text-transparent"
-                  }`}
-                >
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M5 12.5 10 17 19 7" />
-                  </svg>
-                </button>
-
-                {url && <video controls src={url} className="aspect-[9/16] w-full bg-black object-cover" />}
+                <div className="relative">
+                  {url && <video controls src={url} className="aspect-[9/16] w-full bg-black object-cover" />}
+                  <button
+                    type="button"
+                    onClick={() => toggleSelected(video.job_id)}
+                    aria-pressed={isSelected}
+                    aria-label={isSelected ? "取消選取" : "選取"}
+                    className={`absolute left-2.5 top-2.5 flex h-6 w-6 items-center justify-center rounded-md border-2 transition-colors ${
+                      isSelected
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-white/70 bg-black/30 text-transparent hover:border-white"
+                    }`}
+                  >
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M5 12.5 10 17l9-10" />
+                    </svg>
+                  </button>
+                </div>
                 <div className="p-4">
-                  <p className="line-clamp-2 text-[13px] leading-snug text-foreground">{job.edit_request}</p>
+                  <p className="line-clamp-2 text-[13px] leading-snug text-foreground">{video.edit_request}</p>
                   <div className="mt-3 flex gap-2">
                     {url && (
                       <a
@@ -138,6 +159,13 @@ export function MyVideos() {
                       </a>
                     )}
                     {url && <ShareButton url={url} />}
+                    <button
+                      type="button"
+                      onClick={() => editOne(video.job_id)}
+                      className="flex-1 rounded-lg border border-border px-3 py-1.5 text-[12.5px] font-semibold text-foreground transition-colors hover:border-primary/50"
+                    >
+                      編輯
+                    </button>
                   </div>
                 </div>
               </div>
@@ -145,30 +173,6 @@ export function MyVideos() {
           })}
         </div>
       </div>
-
-      {selected.size > 0 && (
-        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-card/95 px-4 py-3 backdrop-blur-sm sm:px-8">
-          <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
-            <span className="text-[13px] font-medium text-foreground">已選 {selected.size} 條片</span>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setSelected(new Set())}
-                className="rounded-lg border border-border px-3.5 py-2 text-[12.5px] font-semibold text-foreground transition-colors hover:border-primary/50"
-              >
-                取消
-              </button>
-              <button
-                type="button"
-                onClick={sendToEditor}
-                className="rounded-lg bg-primary px-4 py-2 text-[12.5px] font-semibold text-primary-foreground transition-transform hover:-translate-y-px"
-              >
-                加入Editor
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

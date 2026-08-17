@@ -17,7 +17,7 @@
 // same spirit.
 
 import { requireUser } from "@/lib/auth";
-import type { EditJob } from "@/lib/edit-jobs";
+import type { EditJob, SavedVideo } from "@/lib/edit-jobs";
 
 const API_BASE = process.env.API_BASE_URL || "http://localhost:8001";
 
@@ -144,6 +144,25 @@ export async function getEditJobStatus(jobId: string): Promise<ActionResult<Edit
     const res = await fetch(`${API_BASE}/jobs/${encodeURIComponent(jobId)}`, { cache: "no-store" });
     if (!res.ok) return { ok: false, error: `Status check failed (HTTP ${res.status}).` };
     return { ok: true, data: await res.json() };
+  } catch {
+    return { ok: false, error: "Couldn't reach the editor service." };
+  }
+}
+
+// Account-level "My Videos" list (GET /users/{id}/videos) — the fix for a
+// real reported bug: the old MyVideos.tsx read lib/recent-jobs.ts
+// (this-browser-only localStorage), so a finished video was invisible from
+// any other device/browser, or after clearing site data, even though the
+// job was sitting on the server the whole time. user.id doubles as the
+// apps/api wa_number for this user (same mapping every other action here
+// uses — see createEditJob's upstream.set("wa_number", user.id)).
+export async function getMyVideosAction(): Promise<ActionResult<SavedVideo[]>> {
+  const user = await requireUser();
+  try {
+    const res = await fetch(`${API_BASE}/users/${encodeURIComponent(user.id)}/videos`, { cache: "no-store" });
+    if (!res.ok) return { ok: false, error: `Couldn't load your videos (HTTP ${res.status}).` };
+    const data = await res.json();
+    return { ok: true, data: data.videos as SavedVideo[] };
   } catch {
     return { ok: false, error: "Couldn't reach the editor service." };
   }

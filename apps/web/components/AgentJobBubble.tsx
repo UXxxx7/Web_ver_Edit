@@ -13,6 +13,7 @@ import {
   confirmEditJob, getEditJobStatus, getEditorUrl, renderEditJob, retryEditJob, reviseEditJob,
   type ActionResult,
 } from "@/app/(app)/agent/actions";
+import { createPostAction, prepareCaptionFromJobAction } from "@/app/(app)/community/actions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { basename, IN_PROGRESS_STATUSES, OPERATION_LABELS, type EditJob } from "@/lib/edit-jobs";
@@ -170,6 +171,7 @@ export function AgentJobBubble({ job, onUpdate }: { job: EditJob; onUpdate: (job
             </Button>
           </div>
           {reviseOpen && <ReviseBox text={reviseText} setText={setReviseText} disabled={actionPending} onSubmit={revise} />}
+          <ShareToCommunityPanel jobId={job.job_id} />
         </>
       )}
 
@@ -188,6 +190,7 @@ export function AgentJobBubble({ job, onUpdate }: { job: EditJob; onUpdate: (job
               <Button size="sm" variant="outline" className="w-fit" onClick={openEditor}>
                 Open manual editor
               </Button>
+              <ShareToCommunityPanel jobId={job.job_id} />
             </>
           )}
         </>
@@ -231,5 +234,95 @@ function ReviseBox({
         Send
       </Button>
     </div>
+  );
+}
+
+// "Share to Community" — AI drafts a caption from the video's real
+// transcript (not the edit_request or planned_edit.summary — see
+// prepareCaptionFromJobAction's own header for why), shown editable, never
+// auto-posted. Self-contained state machine (idle -> loading ->
+// editing/posting -> done) rather than lifting state up into
+// AgentJobBubble itself — nothing above this needs to know a share happened.
+function ShareToCommunityPanel({ jobId }: { jobId: string }) {
+  const [state, setState] = useState<"idle" | "loading" | "editing" | "posting" | "done">("idle");
+  const [caption, setCaption] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  async function start() {
+    setError(null);
+    setState("loading");
+    const result = await prepareCaptionFromJobAction(jobId);
+    if (!result.ok) {
+      setError(result.error);
+      setState("idle");
+      return;
+    }
+    const tags = result.data.hashtags.map((h) => (h.startsWith("#") ? h : `#${h}`)).join(" ");
+    setCaption(tags ? `${result.data.caption}\n\n${tags}` : result.data.caption);
+    setState("editing");
+  }
+
+  async function confirmPost() {
+    setError(null);
+    setState("posting");
+    const result = await createPostAction(jobId, caption);
+    if (!result.ok) {
+      setError(result.error);
+      setState("editing");
+      return;
+    }
+    setState("done");
+  }
+
+  if (state === "done") {
+    return (
+      <p className="text-[13px]">
+        Shared to Community! <a href="/community" className="text-primary underline">View it</a>
+      </p>
+    );
+  }
+
+  if (state === "editing" || state === "posting") {
+    return (
+      <div className="flex flex-col gap-2">
+        <Textarea
+          rows={4}
+          value={caption}
+          onChange={(e) => setCaption(e.target.value)}
+          disabled={state === "posting"}
+        />
+        {error && <p className="text-destructive">{error}</p>}
+        <div className="flex gap-2">
+          <Button size="sm" disabled={state === "posting" || !caption.trim()} onClick={confirmPost}>
+            {state === "posting" ? "Posting…" : "Post to Community"}
+          </Button>
+          <Button size="sm" variant="ghost" disabled={state === "posting"} onClick={() => setState("idle")}>
+            Cancel
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {error && <p className="text-destructive">{error}</p>}
+      <Button
+        size="sm"
+        variant="outline"
+        className="w-fit"
+        disabled={state === "loading"}
+        onClick={start}
+      >
+        {state === "loading" ? (
+          <>
+            <span className="dash-spinner" />
+            Summarizing…
+          </>
+        ) : (
+          "Share to Community"
+        )}
+      </Button>
+    </>
   );
 }
