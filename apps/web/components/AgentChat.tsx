@@ -161,8 +161,14 @@ export function AgentChat() {
   // localStorage-backed lists).
   const restoredRef = useRef(false);
   useEffect(() => {
-    setMessages(loadChatHistory<ChatMsg>());
-    restoredRef.current = true;
+    // Deferred to a microtask (same reasoning as MyVideos.tsx/
+    // EditorPicker.tsx's own Promise-based restores) — calling setState
+    // synchronously in the effect body trips eslint's
+    // react-hooks/set-state-in-effect (caught by CI, not local tsc).
+    Promise.resolve().then(() => {
+      setMessages(loadChatHistory<ChatMsg>());
+      restoredRef.current = true;
+    });
   }, []);
   // Persist on every change, not just on unmount — unmount isn't guaranteed
   // to run in time for a hard navigation/tab close, and this is cheap.
