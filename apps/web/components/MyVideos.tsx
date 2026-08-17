@@ -8,7 +8,9 @@
 // duplicated locally rather than importing a private helper from that file.
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { getEditJobStatus } from "@/app/(app)/agent/actions";
+import { addToEditorQueue } from "@/lib/editor-queue";
 import { getRecentJobs } from "@/lib/recent-jobs";
 import { basename, type EditJob } from "@/lib/edit-jobs";
 
@@ -36,7 +38,23 @@ function ShareButton({ url }: { url: string }) {
 }
 
 export function MyVideos() {
+  const router = useRouter();
   const [jobs, setJobs] = useState<EditJob[] | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const toggleSelect = (jobId: string) => {
+    setSelected((s) => {
+      const next = new Set(s);
+      if (next.has(jobId)) next.delete(jobId);
+      else next.add(jobId);
+      return next;
+    });
+  };
+
+  const sendToEditor = () => {
+    addToEditorQueue(Array.from(selected));
+    router.push("/editor");
+  };
 
   useEffect(() => {
     const ids = getRecentJobs();
@@ -75,19 +93,37 @@ export function MyVideos() {
   }
 
   return (
-    <div className="px-4 py-8 sm:px-8">
+    <div className="px-4 py-8 pb-24 sm:px-8">
       <div className="mx-auto max-w-5xl">
         <h2 className="text-2xl font-bold tracking-tight text-foreground">我的影片</h2>
-        <p className="mt-1 text-[13px] text-muted-foreground">已經完成嘅片，可以隨時下載或者分享。</p>
+        <p className="mt-1 text-[13px] text-muted-foreground">
+          已經完成嘅片，可以隨時下載、分享，或者揀幾條加入Editor再加工。
+        </p>
 
         <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {jobs.map((job) => {
             const url = fileUrl(job.job_id, job.final_path);
+            const isSelected = selected.has(job.job_id);
             return (
               <div
                 key={job.job_id}
-                className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_3px_16px_-6px_rgba(15,27,60,0.12)]"
+                className={`relative overflow-hidden rounded-2xl border bg-card shadow-[0_3px_16px_-6px_rgba(15,27,60,0.12)] transition-colors ${
+                  isSelected ? "border-primary" : "border-border"
+                }`}
               >
+                <button
+                  type="button"
+                  onClick={() => toggleSelect(job.job_id)}
+                  aria-label={isSelected ? "取消選擇" : "選擇呢條片"}
+                  className={`absolute right-2.5 top-2.5 z-10 flex h-6 w-6 items-center justify-center rounded-md border-2 transition-colors ${
+                    isSelected ? "border-primary bg-primary text-primary-foreground" : "border-white/70 bg-black/30 text-transparent"
+                  }`}
+                >
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M5 12.5 10 17 19 7" />
+                  </svg>
+                </button>
+
                 {url && <video controls src={url} className="aspect-[9/16] w-full bg-black object-cover" />}
                 <div className="p-4">
                   <p className="line-clamp-2 text-[13px] leading-snug text-foreground">{job.edit_request}</p>
@@ -109,6 +145,30 @@ export function MyVideos() {
           })}
         </div>
       </div>
+
+      {selected.size > 0 && (
+        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-card/95 px-4 py-3 backdrop-blur-sm sm:px-8">
+          <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
+            <span className="text-[13px] font-medium text-foreground">已選 {selected.size} 條片</span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setSelected(new Set())}
+                className="rounded-lg border border-border px-3.5 py-2 text-[12.5px] font-semibold text-foreground transition-colors hover:border-primary/50"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={sendToEditor}
+                className="rounded-lg bg-primary px-4 py-2 text-[12.5px] font-semibold text-primary-foreground transition-transform hover:-translate-y-px"
+              >
+                加入Editor
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
