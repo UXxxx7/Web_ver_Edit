@@ -12,6 +12,7 @@ import { useClipDrag } from "./useClipDrag";
 import { useLayerDrag } from "./useLayerDrag";
 import { usePinchZoom } from "./usePinchZoom";
 import { usePlayheadScrub } from "./usePlayheadScrub";
+import { useRazorSelect } from "./useRazorSelect";
 import { VideoAudioLanes } from "./VideoAudioLanes";
 
 // index: null selects a top-level OBJECT field — Timeline itself never
@@ -42,6 +43,8 @@ export function Timeline({
   filmstripUrls,
   waveformUrl,
   cuts,
+  sourceDurationFrames,
+  onCutsChange,
   viewMode: viewModeProp,
   onViewModeChange,
   onScrubStart,
@@ -62,8 +65,12 @@ export function Timeline({
   /** Raw-source thumbnails/waveform for the Video/Audio synthetic lanes. Empty/null renders the lane with just its label, no image content yet. */
   filmstripUrls?: string[];
   waveformUrl?: string | null;
-  /** Normalized cuts (source-video frames) — drawn as splice markers on the Video/Audio lanes. Cut creation itself lives in the Inspector (touch-friendly buttons), not timeline drag — see components/Inspector/ProjectInspector.tsx. */
+  /** Normalized cuts (source-video frames) — drawn as splice markers on the Video/Audio lanes. Also editable directly here via the razor tool (click-drag on the Video/Audio lane); the Inspector's buttons (components/Inspector/ProjectInspector.tsx) remain the touch-friendly alternative for the same underlying cuts list. */
   cuts?: VideoCut[];
+  /** SOURCE-space (pre-cut) video length, in frames — required by the razor tool's cut-commit math (src/cuts.ts's normalizeCuts takes source length, not the OUTPUT durationInFrames above). Omit to disable the razor tool entirely (e.g. a future caller with no cuts model). */
+  sourceDurationFrames?: number;
+  /** Commits a new cuts list — same handler the Inspector's CutsPanel already uses. Omit to disable the razor tool. */
+  onCutsChange?: (next: VideoCut[]) => void;
   /** Controlled view mode — the phone shell's Layers action-bar button needs
    *  to read/drive this from outside (Phase 6, F2). Omit both to keep
    *  today's fully self-contained desktop behavior (internal state, the
@@ -213,6 +220,26 @@ export function Timeline({
     onScrubEnd,
   });
 
+  // Razor tool (Premiere-style: toggle it on, drag across the Video/Audio
+  // lane, release to instantly cut that range) — off by default so the
+  // lanes keep their normal scrub-to-seek behavior until explicitly armed.
+  // Only enabled when the caller actually supplies a cuts model (App.tsx's
+  // Arm A wiring always does; a hypothetical future no-cuts caller simply
+  // never sees the toolbar button).
+  const [razorMode, setRazorMode] = useState(false);
+  const razorOverlayRef = useRef<HTMLDivElement>(null);
+  const razorAvailable = !!onCutsChange && sourceDurationFrames !== undefined;
+  const { razorHandlers, cancelDrag: cancelRazorDrag } = useRazorSelect({
+    scrollRef,
+    labelWidth,
+    pxPerFrameRef,
+    durationInFrames,
+    sourceDurationFrames: sourceDurationFrames ?? durationInFrames,
+    cuts: cuts || [],
+    onCutsChange: onCutsChange || (() => {}),
+    overlayRef: razorOverlayRef,
+  });
+
   const { pinchHandlers } = usePinchZoom({
     scrollRef,
     labelWidth,
@@ -222,7 +249,8 @@ export function Timeline({
       cancelClipDrag();
       cancelLayerDrag();
       cancelScrub();
-    }, [cancelClipDrag, cancelLayerDrag, cancelScrub]),
+      cancelRazorDrag();
+    }, [cancelClipDrag, cancelLayerDrag, cancelScrub, cancelRazorDrag]),
   });
 
   // Splice markers: each cut collapses to one OUTPUT-frame point (its start
@@ -333,6 +361,17 @@ export function Timeline({
         {viewMode === "layers" && (
           <button type="button" className="btn btn--sm" onClick={() => setExtraRows((n) => n + 1)} title="Add an empty layer row to drop a clip into">+ Add row</button>
         )}
+        {razorAvailable && (
+          <button
+            type="button"
+            className="btn btn--sm"
+            aria-selected={razorMode}
+            onClick={() => setRazorMode((v) => !v)}
+            title="Razor tool — click-drag across the Video/Audio lane to cut that range instantly"
+          >
+            ✂ Razor
+          </button>
+        )}
         <span className="toolbar__spacer" />
         <button type="button" className="btn btn--sm" onClick={() => setPxPerFrame((z) => Math.max(0.05, (z || 1) / 1.6))} title="Zoom out">−</button>
         <button type="button" className="btn btn--sm" onClick={zoomFit} title="Fit to width">Fit</button>
@@ -371,7 +410,16 @@ export function Timeline({
             waveformUrl={waveformUrl}
             spliceFrames={spliceFrames}
             spliceTitle={(i) => `Cut here (${(cuts?.[i].toFrame ?? 0) - (cuts?.[i].fromFrame ?? 0)} frames removed)`}
+            trackHandlers={razorMode && razorAvailable ? razorHandlers : scrubHandlers}
+            trackClassName={razorMode && razorAvailable ? "lane__track--razor" : undefined}
           />
+          {razorAvailable && (
+            <div
+              ref={razorOverlayRef}
+              className="razor-selection"
+              style={{ height: rowHeight * 3 - 4, display: "none" }}
+            />
+          )}
 
           {viewMode === "type" && lanes.map((lane) => (
             <div className="lane" key={lane.section} style={{ height: lane.rows * rowHeight }}>
