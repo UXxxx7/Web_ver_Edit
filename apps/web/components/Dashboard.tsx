@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { generateContentAction, getSuggestionsAction, type Suggestion } from "@/app/(app)/actions";
 import { FeatureHub } from "@/components/FeatureHub";
+import { OnboardingChecklist } from "@/components/OnboardingChecklist";
 import { ResultCard } from "@/components/ResultCard";
 import { TemplateGallery } from "@/components/TemplateGallery";
 import { TOOL_META, type GenerationKind } from "@/lib/generation-types";
@@ -52,7 +53,13 @@ function historyToMessages(history: Generation[]): ChatMsg[] {
   ]);
 }
 
-export function Dashboard({ initialHistory, profileRole }: { initialHistory: Generation[]; profileRole: string }) {
+export function Dashboard({
+  initialHistory, profileRole, profileComplete,
+}: {
+  initialHistory: Generation[];
+  profileRole: string;
+  profileComplete: boolean; // display_name && role both set — feeds OnboardingChecklist's step 1
+}) {
   const [messages, setMessages] = useState<ChatMsg[]>(() => historyToMessages(initialHistory));
   const [pendingKinds, setPendingKinds] = useState<Set<GenerationKind>>(new Set());
   const [toast, setToast] = useState<string | null>(null);
@@ -176,6 +183,13 @@ export function Dashboard({ initialHistory, profileRole }: { initialHistory: Gen
   return (
     <div className="dash">
       <FeatureHub />
+      <OnboardingChecklist
+        profileComplete={profileComplete}
+        // Live `messages` state, not the initialHistory prop — so a
+        // generation fired in this same session (e.g. from TemplateGallery)
+        // checks this step off immediately, not just after a reload.
+        hasGeneration={messages.some((m) => m.role === "bot" && m.status === "done")}
+      />
       <div id="brainstorm" className="scroll-mt-14 px-4 py-6 sm:px-6">
         <div className="mx-auto grid max-w-6xl grid-cols-1 gap-4 lg:grid-cols-[1fr_300px]">
           <BrainstormPanel

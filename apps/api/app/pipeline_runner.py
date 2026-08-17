@@ -2907,10 +2907,20 @@ def _op_apply_style(src: str, op: dict, workdir: Path) -> Optional[str]:
             props["beforeAfter"] = before_after
         qr_input = op.get("qr_contact") or {}
         if qr_input.get("contact_url"):
-            from .qr_gen import generate_qr
             # 同 videoSrc：生成进任务目录、走 /files 伺服，不进 remotion public/
             qr_abs = workdir / "qr.png"
-            if generate_qr(qr_input["contact_url"], qr_abs):
+            # 整个 apply_style 是 _DEGRADABLE_OPS 之一：这里若不捕获异常，一张
+            # QR 卡生不出来（哪怕只是 qr_gen 依赖缺失这种小毛病）会连累外层重试
+            # 两次后把整段 apply_style 都降级掉，字幕/调色/其余样式全部一起丢——
+            # 代价跟"生不出一张联系卡"完全不成比例。本地兜底：生成失败就当没有
+            # 这张卡（跟 generate_qr 返回 False 同一处理），不拖累其余样式。
+            try:
+                from .qr_gen import generate_qr
+                qr_ok = generate_qr(qr_input["contact_url"], qr_abs)
+            except Exception as e:
+                logger.warning(f"    apply_style: QR 生成失败，跳过联系卡（不影响其余样式）: {e}")
+                qr_ok = False
+            if qr_ok:
                 # Priority 1 (root fix): content_planner detected the actual
                 # moment the speaker says "WhatsApp me"/"scan the QR code"/etc
                 # (contact_cue) — mount the card exactly then, in the normal

@@ -16,10 +16,11 @@
 // (single photo) and voice-clone (single audio) keep their single-file paths;
 // only the video-edit job uses the multi-asset assembly. See
 // armb_web_wiring_plan.md §5.
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createCrollJob, createEditJob, createVoiceClone, getEditJobStatus } from "@/app/(app)/agent/actions";
 import { AgentJobBubble } from "@/components/AgentJobBubble";
 import { addRecentJob } from "@/lib/recent-jobs";
+import { loadChatHistory, saveChatHistory } from "@/lib/agent-chat-history";
 import type { EditJob } from "@/lib/edit-jobs";
 
 type Media = "video" | "image" | "audio";
@@ -145,10 +146,45 @@ function AgentIntro({ onAttach }: { onAttach: () => void }) {
 
 export function AgentChat() {
   const [messages, setMessages] = useState<ChatMsg[]>([]);
+  // Restore after mount, not via a useState lazy initializer — this
+  // component is server-rendered first (it's a Client Component, but
+  // Next.js still renders it to HTML on the server for the initial
+  // payload), where `window`/localStorage don't exist, so a lazy
+  // initializer would only ever see history on the client. That made the
+  // server's HTML (always empty-state) disagree with the client's very
+  // first render (real restored messages) — a hydration mismatch React
+  // detects and "fixes" by discarding the server HTML and re-rendering the
+  // whole tree client-side. Starting both at [] and restoring here, after
+  // hydration, keeps server and first-client-render identical; the restore
+  // itself then lands a frame later as an ordinary post-mount state update
+  // (same pattern MyVideos.tsx/EditorPicker.tsx already use for their own
+  // localStorage-backed lists).
+  const restoredRef = useRef(false);
+  useEffect(() => {
+    // Deferred to a microtask (same reasoning as MyVideos.tsx/
+    // EditorPicker.tsx's own Promise-based restores) — calling setState
+    // synchronously in the effect body trips eslint's
+    // react-hooks/set-state-in-effect (caught by CI, not local tsc).
+    Promise.resolve().then(() => {
+      setMessages(loadChatHistory<ChatMsg>());
+      restoredRef.current = true;
+    });
+  }, []);
+  // Persist on every change, not just on unmount — unmount isn't guaranteed
+  // to run in time for a hard navigation/tab close, and this is cheap.
+  // Gated on restoredRef: on the very first mount this effect and the
+  // restore effect above both fire in the same pass, before setMessages
+  // above has actually taken effect — without the guard this would run
+  // first with the still-empty initial `messages` and clobber whatever was
+  // saved, a moment before the restore effect even reads it back.
+  useEffect(() => {
+    if (restoredRef.current) saveChatHistory(messages);
+  }, [messages]);
   const [text, setText] = useState("");
   const [assets, setAssets] = useState<Asset[]>([]);
   const [arm, setArm] = useState<Arm>("arm_a");
   const [sending, setSending] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const idCounter = useRef(0);
   const nextId = () => `m${Date.now()}-${idCounter.current++}`;
@@ -169,9 +205,11 @@ export function AgentChat() {
     fileInputRef.current?.click();
   }
 
-  function handleFileChosen(e: React.ChangeEvent<HTMLInputElement>) {
-    const chosen = Array.from(e.target.files ?? []);
-    e.target.value = "";
+  // Shared by the 📎 button's hidden <input> (FileList from an <input
+  // onChange>) and drag-and-drop (FileList from a DataTransfer) — same
+  // staging rules either way, so dropping a video behaves identically to
+  // clicking attach and picking it.
+  function addFiles(chosen: File[]) {
     if (chosen.length === 0) return;
 
     setAssets((prev) => {
@@ -193,6 +231,18 @@ export function AgentChat() {
       }
       return next;
     });
+  }
+
+  function handleFileChosen(e: React.ChangeEvent<HTMLInputElement>) {
+    const chosen = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    addFiles(chosen);
+  }
+
+  function handleDrop(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setDragActive(false);
+    addFiles(Array.from(e.dataTransfer.files ?? []));
   }
 
   function setAssetRole(id: string, role: Role) {
@@ -328,14 +378,32 @@ export function AgentChat() {
       setSending(false);
       return;
     }
-    addRecentJob(result.data.jobId);   // so the standalone /editor picker can list it
+    addRecentJob(result.data.jobId);   // so CommunityFeed's share picker can list it (see recent-jobs.ts's own header)
     const status = await getEditJobStatus(result.data.jobId);
     if (status.ok) updateJobMessage(botId, status.data);
     setSending(false);
   }
 
   return (
-    <div className="dash">
+    <div
+      className={`dash agent-dropzone${dragActive ? " is-drag-active" : ""}`}
+      onDragOver={(e) => {
+        e.preventDefault();
+        setDragActive(true);
+      }}
+      onDragLeave={(e) => {
+        // Only clear on leaving the container itself, not a child element —
+        // dragging over the compose bar/thread fires leave+enter on every
+        // child boundary crossed, which would otherwise flicker the overlay.
+        if (e.currentTarget === e.target) setDragActive(false);
+      }}
+      onDrop={handleDrop}
+    >
+      {dragActive && (
+        <div className="agent-dropzone-overlay" aria-hidden>
+          <p>📎 放低嚟上載</p>
+        </div>
+      )}
       <main className="dash-main">
         <div className="thread">
           {messages.length === 0 && <AgentIntro onAttach={handleAttachClick} />}

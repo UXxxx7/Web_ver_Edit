@@ -260,9 +260,12 @@ def revise_plan(job_id: str, feedback: str) -> None:
                                   transcript=transcript)
         except Exception as e:
             logger.warning(f"L2 修订规划失败，回退 L1.5: {e}")
-            from .llm_planner import plan_edit
-
-            new_plan = plan_edit(f"{job.edit_request}。补充：{feedback}")
+            try:
+                from .llm_planner import plan_edit
+                new_plan = plan_edit(f"{job.edit_request}。补充：{feedback}")
+            except Exception as e2:
+                logger.warning(f"L1.5 也失败，回退本地默认方案: {e2}")
+                new_plan = _l1_5_fallback_plan(f"{type(e2).__name__}: {e2}")
 
         update_job_fields(
             job_id,
@@ -564,7 +567,14 @@ def generate_croll(job_id: str, photo_path: str, lang: str = "zh", hint: str = "
 
         script = write_script(photo_path, lang=lang, hint=hint)
         if not script:
-            raise RuntimeError("看图写文案失败（视觉 LLM 不可用或未返回内容）")
+            # 呢句错误信息以前讲"視覺 LLM"係啱嘅（write_script 舊版真係會睇
+            # 相），但 croll_script.py 2026-08-11 已经改咗做纯文字调用
+            # （call_llm_chat，唔再睇相），呢度冇同步跟住改——真实撞到过
+            # （job_0320d4af3cd5,2026-08-14）：croll_script.py 自己嘅
+            # log 正确讲"主 LLM 不可用",但呢度抛出嚟畀用户睇嘅错误仲话
+            # 係"視覺 LLM"，误导咗排查方向。跟返 croll_script.py 自己
+            # 准确嘅措辞。
+            raise RuntimeError("文案生成失败（主 LLM 不可用或未返回内容，可能是暂时性 API 波动，重试通常能解决）")
         logger.info(f"  C-roll 文案（{job_id}）: {script[:80]}")
         # HeyGen 数字人念的就是这段文字，逐字保证准确——存下来给后面的
         # transcribe_segments 用来纠正 ASR 听错的同音字/含糊音（而不是让
@@ -815,11 +825,40 @@ def _plan_clip_factory(job: Any, wa: Any = None) -> None:
     logger.info(f"clip-factory 规划完成: job {job.id}, {len(candidates)} 条候选")
 
 
+def _l1_5_fallback_plan(reason: str) -> dict:
+    """L1.5（app/llm_planner.py）自己也失败时的最后一道安全网——真正的地板。
+
+    修订记录（别再重复这段调查）：早前这个分支下 app/llm_planner.py 在这台
+    checkout 里不存在，`git log --all` 对它也没有任何记录，误以为是"从没写
+    过"，于是把两处 `from .llm_planner import plan_edit` 整个换成了这个本地
+    默认方案。后来发现真相是它其实一直有人在本地写好并用着（428 行，含完整
+    的多 provider 调用+重试+关键词兜底），只是没提交——`git log`当然照不到
+    未跟踪的文件。真正的模块已经在另一个 PR 里补提交回来了，两处调用点也已
+    改回先走 llm_planner.plan_edit()，这个函数现在退居"连 llm_planner 自己
+    的内部兜底都失败"这种更少见情形的兜底，不再是唯一防线。保留它仍然有意
+    义：llm_planner.plan_edit() 内部虽然每个 provider 分支都有自己的
+    try/except（网络/HTTP 错误不会往外抛），但 get_planner()/get_config()
+    这类初始化路径不在那层保护之内，理论上仍可能抛异常——这里用跟
+    agent_editor._default_plan 同一哲学、但完全本地、零外部依赖（不读
+    manifest、不碰网络）的确定性默认方案接住，保证这条路径永远不会再抛异常。"""
+    plan = [{"type": "remove_filler"}, {"type": "remove_silences"}, {"type": "add_subtitles"}]
+    return {
+        "edit_operations": plan,
+        "summary": (f"未能生成定制剪辑方案（{reason}），已按默认方案处理"
+                    "（去口误、去静音、加字幕）。如需更精细的剪辑，请确认后用"
+                    "「修改要求」重新说明。"),
+        "edit_decisions": [],
+        "review_findings": [],
+    }
+
+
 def _run_llm_planner(job: Any, wa: Any = None) -> None:
     """用 L2 agent 规划编辑方案（读 manifest/skill + tool-calling + 自审 + schema 校验）。
 
-    agent 出错时回退到 L1.5 关键词/结构化规划器，保证任务不中断。
-    传入 wa 时会在转录/规划两个较慢阶段前回传进度消息（进度预览）。
+    agent 出错时回退到 L1.5（app/llm_planner.py 的关键词/结构化规划器），
+    L1.5 万一也失败再回退本地确定性默认方案（_l1_5_fallback_plan），
+    保证任务不中断。传入 wa 时会在转录/规划两个较慢阶段前回传进度消息
+    （进度预览）。
     """
     # clip-factory 意图分类——放在最前面，比 Arm B/L2 都早：命中就整条短路，
     # 走完全不同的规划路径（选片而不是单条编辑方案）。分类失败关闭到
@@ -887,17 +926,21 @@ def _run_llm_planner(job: Any, wa: Any = None) -> None:
                           source_facts=source_facts)
     except Exception as e:
         logger.warning(f"L2 agent 规划失败，回退 L1.5: {e}")
-        from .llm_planner import plan_edit
-
-        duration = None
         try:
-            from .pipeline_runner import _probe_duration
+            from .llm_planner import plan_edit
 
-            if input_path.exists():
-                duration = _probe_duration(input_path) or None
-        except Exception:
             duration = None
-        plan = plan_edit(job.edit_request, video_duration=duration)
+            try:
+                from .pipeline_runner import _probe_duration
+
+                if input_path.exists():
+                    duration = _probe_duration(input_path) or None
+            except Exception:
+                duration = None
+            plan = plan_edit(job.edit_request, video_duration=duration)
+        except Exception as e2:
+            logger.warning(f"L1.5 也失败，回退本地默认方案: {e2}")
+            plan = _l1_5_fallback_plan(f"{type(e2).__name__}: {e2}")
 
     update_job_fields(job.id, planned_edit=json.dumps(plan, ensure_ascii=False))
     logger.info(f"规划完成: {json.dumps(plan, ensure_ascii=False)[:200]}")

@@ -27,6 +27,7 @@ from .config import get_config
 from .database import JobStatus, MessageDirection, MessageType
 from .job_manager import (
     append_asset,
+    count_jobs_for_user,
     create_job,
     finalize_target,
     get_active_job_for_user,
@@ -35,6 +36,7 @@ from .job_manager import (
     get_job,
     get_jobs_by_status,
     get_or_create_user,
+    list_done_jobs_for_user,
     message_exists,
     save_message,
     update_job_fields,
@@ -493,6 +495,104 @@ def get_batch_endpoint(batch_id: str):
             "asset_kind": "video" if (filename or "").endswith(".mp4") else "image",
         })
     return {"batch_id": batch_id, "variants": variants}
+
+
+@router.get("/users/{wa_number}/onboarding-status")
+async def get_onboarding_status(wa_number: str):
+    """轻量级用户级摘要，只供 apps/web 首页嘅 onboarding checklist 用——
+    唔重用 get_active_job_for_user（净返回一个"活跃中"job，用户完成咗
+    退出活跃状态之后就唔计喺入面）,呢度要嘅系"呢个用户试过未",唔系
+    "而家有冇嘢喺跑紧"，所以用 count_jobs_for_user 计全部历史 job。
+
+    get_or_create_user：呢个 endpoint 冇建 job 嘅副作用,但用户可能仲未
+    喺 Python 呢边有过 User 行（例如净係填过 profile,未做过任何生成）,
+    跟其它 endpoint 一致处理,首次访问就建返一行,唔额外特殊判断。"""
+    user = get_or_create_user(wa_number)
+    return {
+        "job_count": count_jobs_for_user(user.id),
+        "voice_cloned": bool(user.elevenlabs_voice_id),
+    }
+
+
+@router.get("/users/{wa_number}/videos")
+async def get_user_videos(wa_number: str):
+    """帳號級「我的影片」清單——DONE 嘅 job，新到舊。
+
+    之前 apps/web 嘅 MyVideos.tsx 冇呢個 endpoint 可以攞,淨係靠瀏覽器
+    localStorage 記低邊啲 job id 見過(lib/recent-jobs.ts),換返第二部機/
+    第二個瀏覽器,或者清咗瀏覽器資料,啲片就"唔見咗"(其實服務器度仲喺度,
+    淨係前端唔知去邊度攞)。而家改用 user_id 直接查,同 wa_number 嘅對應
+    關係同 /croll、/jobs 建 job 嗰陣 upstream.set("wa_number", user.id) 果條
+    路一致(apps/web 個 user.id 本身就係呢度嘅 wa_number)。"""
+    user = get_or_create_user(wa_number)
+    jobs = list_done_jobs_for_user(user.id)
+    return {
+        "videos": [
+            {
+                "job_id": j.id,
+                "edit_request": j.edit_request,
+                "pipeline": j.pipeline,
+                "final_path": j.final_path,
+                "created_at": j.created_at.isoformat() if j.created_at else None,
+            }
+            for j in jobs
+        ]
+    }
+
+
+@router.get("/jobs/{job_id}/video-theme")
+async def get_job_video_theme(job_id: str):
+    """一句話總結呢條片實際講咩——畀 apps/web 嘅「分享到社群」流程用：先要
+    一個「主題」，先可以送去 /content-ideas（跟 Dashboard 個「發帖文案」工具
+    同一個生成器）攞返完整嘅 caption+hashtags。
+
+    唔係修返 talkinghead_social_caption/social_caption.py 嗰條路——嗰個模組
+    喺呢個 repo 從頭到尾都冇移植過（webhook.py/worker.py 仲有 import 佢嘅
+    死代碼，try/except 吞咗，一直靜靜地失敗，見 worker.py 嗰段注解）,而且
+    嗰個設計係「每條片跑完都自動生成」，呢度要嘅係「用戶主動撳先至生成」,
+    範圍細好多、唔想加呢層開銷落去每一條普通 job 度,所以獨立開一個按需
+    調用嘅 endpoint,唔去猜嗰個未移植模組原本嘅輸出格式。
+
+    讀 job_dir/input_transcript.json——content_planner.py 第一次轉寫嗰份
+    （見嗰個檔案自己嘅注解），呢個時候（job 已經 PREVIEW_READY/DONE）一定
+    已經存在。"""
+    job = get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    transcript_path = job.job_dir / "input_transcript.json"
+    if not transcript_path.exists():
+        return {"theme": None, "reason": "no transcript available for this job"}
+
+    try:
+        transcript_data = json.loads(transcript_path.read_text(encoding="utf-8"))
+        segments = transcript_data.get("segments", [])
+        full_text = "".join(s.get("text", "") for s in segments).strip()
+        lang = transcript_data.get("language", "zh")
+    except Exception as e:
+        logger.warning(f"video-theme: 读取转录失败 job {job_id}: {e}")
+        return {"theme": None, "reason": "couldn't read transcript"}
+
+    if not full_text:
+        return {"theme": None, "reason": "empty transcript"}
+
+    from .llm_client import call_llm_chat
+    system = (
+        "你會閱讀一段影片嘅完整逐字稿，用一句話（20字以內）概括呢條片嘅主題/賣點——"
+        "淨係輸出果一句話，唔好加引號、唔好加解釋、唔好加標點以外嘅其他內容。"
+        if lang == "zh"
+        else "Read a video's full transcript and summarize its topic/hook in ONE short sentence "
+        "(under 15 words). Output ONLY that sentence — no quotes, no explanation, no extra text."
+    )
+    theme = call_llm_chat(system, full_text[:4000], temperature=0.3, json_mode=False)
+    if not theme:
+        return {"theme": None, "reason": "LLM unavailable"}
+    # Whisper's `language` is a raw ISO code (could be "yue"/etc, not just
+    # "zh"/"en") — the caller (apps/web) only ever asks /content-ideas for
+    # "zh" or "en", so normalize here rather than making every caller redo
+    # this same fallback.
+    normalized_lang = "en" if lang == "en" else "zh"
+    return {"theme": theme.strip().strip('"「」""\''), "lang": normalized_lang}
 
 
 @router.post("/voice-clone")
