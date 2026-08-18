@@ -411,3 +411,32 @@
 .agent-markdown code {
   background: var(--dash-pill-bg); border-radius: 4px; padding: 1px 5px; font-family: var(--font-mono); font-size: 12px;
 }
+
+/* ── VideoPlayer.tsx's scrub bar — a plain <input type="range"> styled
+   for a bigger, easier-to-grab thumb than a native <video controls> scrub
+   handle gets once it's squeezed next to play/time/duration/fullscreen in
+   one thin strip (see that file's own header for why this exists). */
+.video-scrub {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+.video-scrub::-webkit-slider-runnable-track {
+  height: 4px; border-radius: 999px; background: rgba(255, 255, 255, 0.3);
+}
+.video-scrub::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 15px; height: 15px; margin-top: -5.5px;
+  border-radius: 999px; background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+.video-scrub::-moz-range-track {
+  height: 4px; border-radius: 999px; background: rgba(255, 255, 255, 0.3);
+}
+.video-scrub::-moz-range-thumb {
+  width: 15px; height: 15px; border: none;
+  border-radius: 999px; background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}

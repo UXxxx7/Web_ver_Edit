@@ -31,12 +31,20 @@ _SYSTEM_ZH = """你要幫一個香港保險從業員/KOL 度一條拍攝分鏡�
 呢個係「點樣拍」嘅分鏡表，唔係台詞本身——每個鏡頭寫景別/角度 + 呢個鏡頭要影乜嘢/講緊乜嘢\
 重點（唔使逐字台詞），等用戶睇完知道要點樣攞機、企邊度、拍咩畫面。
 
+實際交付出嚟嘅招募/心態類短片，成條片通常唔係由頭到尾一鏡人望鏡頭講嘢，而係「望鏡頭講嘢」\
+（talking head）同「補充畫面」（B-roll，例如：處理文書、開會、同同事傾偈、獲獎/團隊活動\
+畫面）交替出現——B-roll 用嚟畀觀眾睇到台詞入面提到嘅嘢，唔係得個講字。分鏡入面標返每個鏡頭\
+係邊一種（"talking_head" 定 "broll"），B-roll 嘅內容要夠具體（例如「B-roll：處理文書」\
+「B-roll：同事開會」），唔好淨係寫「插入相關畫面」呢類冇資訊嘅講法。唔係每條片都啱用 B-roll——\
+如果方向本身好簡單/純談話式，全部用 talking_head 都得。
+
 如果下面有提供「最新資訊」，分鏡入面提到嘅重點可以用返呢啲真實資料，唔好夾雜錯誤或者過時\
 嘅資料；冇提供就用返你自己知道嘅嘢寫一個通用啲嘅方案，唔好編造具體數字/日期扮真實。
 
 硬性要求：
-1. 3-6 個鏡頭，每個鏡頭都要講清楚：景別/角度（例如「近鏡，人面對鏡頭」「中景，手持保單」）、\
-呢個鏡頭嘅內容重點（一句就夠，唔使逐字稿）、大約長度（例如「3-5秒」）。
+1. 3-6 個鏡頭，每個鏡頭都要講清楚：kind（"talking_head" 或 "broll"）、景別/角度（例如\
+「近鏡，人面對鏡頭」「中景，手持保單」）、呢個鏡頭嘅內容重點（一句就夠，唔使逐字稿，B-roll\
+要寫具體畫面內容）、大約長度（例如「3-5秒」）。
 2. 鏡頭之間要有邏輯——開場抓注意力、中段講重點、結尾有一句收尾/CTA 方向嘅鏡頭。
 3. 只用繁體字，唔可以出現簡體字。
 4. 貼地、可執行——一個人用手機都拍到嘅程度（唔好寫「租用穩定器/多機位」呢啲一般人做唔到嘅嘢，\
@@ -44,8 +52,9 @@ _SYSTEM_ZH = """你要幫一個香港保險從業員/KOL 度一條拍攝分鏡�
 5. 唔好用破折號（—）。
 
 只輸出 JSON，不要 markdown，不要任何說明文字：
-{"summary": "整體拍攝思路，一兩句", "shots": [{"label": "鏡頭 1", "shot_type": "景別/角度", \
-"content": "呢個鏡頭影乜嘢/講緊乜嘢重點", "duration_hint": "3-5秒"}], "total_duration_estimate": "約30秒"}"""
+{"summary": "整體拍攝思路，一兩句", "shots": [{"label": "鏡頭 1", "kind": "talking_head", \
+"shot_type": "景別/角度", "content": "呢個鏡頭影乜嘢/講緊乜嘢重點", "duration_hint": "3-5秒"}], \
+"total_duration_estimate": "約30秒"}"""
 
 _SYSTEM_EN = """Write a shooting script (shot list) for a Hong Kong insurance-agent KOL, on a \
 direction/topic the user gives you. Target format: vertical short video (9:16, IG Reel/TikTok \
@@ -55,14 +64,23 @@ This is a shot list for HOW to film it, not the spoken words themselves — each
 framing/angle + the content focus of that shot (not a verbatim script), so the user knows how to \
 hold the camera, where to stand, what to shoot.
 
+Real recruitment/mindset shorts that work usually aren't one continuous talking-to-camera shot from \
+start to finish — they alternate between "talking head" (facing camera, speaking directly) and \
+"B-roll" (supporting footage — e.g. doing paperwork, a team meeting, chatting with colleagues, \
+award/team-event footage) that visually shows what the narration is describing, instead of just \
+talking about it. Tag each shot's kind ("talking_head" or "broll"), and make B-roll content specific \
+(e.g. "B-roll: doing paperwork", "B-roll: team meeting") rather than a vague "insert relevant \
+footage." Not every direction needs B-roll — a simple, purely conversational direction can be all \
+talking_head shots.
+
 If "current information" is provided below, the shot content can reference those real facts; don't \
 mix in wrong or outdated information. If none is provided, use general knowledge instead — never \
 invent specific numbers/dates to sound authoritative.
 
 Hard requirements:
-1. 3-6 shots, each with: framing/angle (e.g. "Close-up, facing camera" / "Medium shot, holding a \
-policy document"), the content focus of that shot (one line, not a full script), and a rough \
-duration (e.g. "3-5s").
+1. 3-6 shots, each with: kind ("talking_head" or "broll"), framing/angle (e.g. "Close-up, facing \
+camera" / "Medium shot, holding a policy document"), the content focus of that shot (one line, not a \
+full script — B-roll should describe the actual footage), and a rough duration (e.g. "3-5s").
 2. Shots should have a logical arc — an opening hook, a middle that makes the point, a closing shot \
 pointing toward a sign-off/CTA direction.
 3. No em dashes (—).
@@ -71,8 +89,8 @@ wouldn't have, unless the direction itself implies a bigger production.
 
 Output ONLY valid JSON, no markdown, no explanation:
 {"summary": "overall shooting approach, one or two sentences", "shots": [{"label": "Shot 1", \
-"shot_type": "framing/angle", "content": "what this shot shows/focuses on", "duration_hint": "3-5s"}], \
-"total_duration_estimate": "~30s"}"""
+"kind": "talking_head", "shot_type": "framing/angle", "content": "what this shot shows/focuses on", \
+"duration_hint": "3-5s"}], "total_duration_estimate": "~30s"}"""
 
 
 def _clean_shots(raw) -> list:
@@ -83,8 +101,12 @@ def _clean_shots(raw) -> list:
         content = str(s.get("content", "")).strip()
         if not content:
             continue
+        kind = str(s.get("kind", "")).strip().lower()
+        if kind not in ("talking_head", "broll"):
+            kind = "talking_head"  # LLM omitted/mis-cased it — the common case, not a guess
         out.append({
             "label": str(s.get("label", "")).strip() or f"Shot {len(out) + 1}",
+            "kind": kind,
             "shot_type": str(s.get("shot_type", "")).strip(),
             "content": content,
             "duration_hint": str(s.get("duration_hint", "")).strip(),

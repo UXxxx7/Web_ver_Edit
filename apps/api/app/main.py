@@ -23,6 +23,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from .combined_script import generate_combined_script, generate_more_beats
 from .content_idea import generate_content_idea
 from .shooting_script import generate_shooting_script
 from .topic_suggestions import generate_topic_suggestions
@@ -95,6 +96,32 @@ def video_scripts(req: BrainstormRequest):
 def shooting_scripts(req: BrainstormRequest):
     direction = _augment_direction(req.direction, req.lang, req.brand_voice_notes)
     return {"script": generate_shooting_script(direction, req.lang)}
+
+
+class CombinedScriptRequest(BrainstormRequest):
+    # "static" | "walk" | "dynamic" — see combined_script.py's own header
+    # for why this needed to be a real parameter, not just a stylistic
+    # aside in the prompt.
+    movement: str = "walk"
+
+
+@app.post("/combined-scripts")
+def combined_scripts(req: CombinedScriptRequest):
+    direction = _augment_direction(req.direction, req.lang, req.brand_voice_notes)
+    return {"script": generate_combined_script(direction, req.movement, req.lang)}
+
+
+class MoreBeatsRequest(CombinedScriptRequest):
+    # The beats already shown to the user (as plain dicts, straight off the
+    # earlier /combined-scripts response) — generate_more_beats reads these
+    # to continue naturally instead of starting the script over.
+    beats: list[dict]
+
+
+@app.post("/combined-scripts/more")
+def combined_scripts_more(req: MoreBeatsRequest):
+    direction = _augment_direction(req.direction, req.lang, req.brand_voice_notes)
+    return {"more": generate_more_beats(direction, req.movement, req.lang, req.beats)}
 
 
 @app.post("/content-ideas")
