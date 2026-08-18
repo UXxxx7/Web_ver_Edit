@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+storage/
+openmontage_web.db
+.env
+remotion-composer/node_modules/
+remotion-composer/editor/node_modules/
+remotion-composer/.bundle-cache/
+remotion-composer/build
+.git/

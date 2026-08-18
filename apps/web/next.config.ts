@@ -1,6 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Standalone output for the production Docker image — bundles only the
+  // traced dependency subset (not the full node_modules) into
+  // .next/standalone, so the runtime image doesn't need npm/node_modules
+  // at all past the build stage. See apps/web/Dockerfile.
+  output: "standalone",
   experimental: {
     serverActions: {
       // 主视频 + 参考视频 + 多段 b-roll 的合计请求体上限。Next.js 的 Server

@@ -1,0 +1,64 @@
+# Deployment compose file — two services (web, api), matching the
+# apps/web + apps/api split the rest of this repo already assumes. Not used
+# for local dev (dev.md / README's own npm run dev:* scripts stay the fast
+# path); this is what actually runs on the Droplet.
+services:
+  api:
+    build: ./apps/api
+    restart: unless-stopped
+    env_file:
+      - ./apps/api/.env
+    volumes:
+      # Persist job data + sqlite db across container restarts/redeploys —
+      # without this, every `docker compose up --build` would wipe every
+      # video anyone ever generated (the whole point of the account-level
+      # My Videos work earlier this session would be defeated).
+      - api_storage:/app/storage
+      - api_db:/app/db
+    environment:
+      # database.py resolves DATABASE_URL relative to _PROJECT_ROOT if unset
+      # (sqlite:///<project_root>/openmontage_web.db) — pin it onto the
+      # api_db volume explicitly so it isn't silently sitting on the
+      # container's own (also-persisted, but separate-purpose) filesystem.
+      DATABASE_URL: sqlite:////app/db/openmontage_web.db
+    # Headless Chrome (Remotion's renderer) needs more /dev/shm than
+    # Docker's 64MB default or it crashes mid-render — see apps/api/Dockerfile's
+    # header comment linking Remotion's own Docker guide.
+    shm_size: "1gb"
+    expose:
+      - "8001"
+
+  web:
+    build: ./apps/web
+    restart: unless-stopped
+    environment:
+      # Docker Compose's internal DNS resolves service names — "api", not
+      # localhost, from inside this container.
+      API_BASE_URL: http://api:8001
+      SESSION_SECRET: ${SESSION_SECRET}
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
+    depends_on:
+      - api
+    expose:
+      - "3000"
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      # Let's Encrypt cert (issued on the host via certbot, not in-container)
+      # — mounted read-only so a `certbot renew` on the host is picked up by
+      # nginx on its next restart/reload without touching this file.
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    depends_on:
+      - web
+      - api
+
+volumes:
+  api_storage:
+  api_db:
