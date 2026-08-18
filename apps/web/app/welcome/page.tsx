@@ -8,10 +8,10 @@ import type { Lang } from "@/lib/i18n";
 
 // generateMetadata (not a static `metadata` export) because the title/
 // description need to follow the same ui_lang cookie the page body reads —
-// a static export can't see cookies(). OG image reuses the real showcase
-// photo (not a mockup) rather than a generated 1200x630 asset — a
-// pragmatic first pass, portrait crop isn't ideal for OG but beats no
-// preview image at all when this link is shared.
+// a static export can't see cookies(). No OG/Twitter image: the previous
+// one (sample-input-photo.png) turned out to be a watermarked stock photo,
+// not a real licensed asset — worse to show that on social previews than
+// to show none. Re-add images here once a real, unwatermarked example exists.
 export async function generateMetadata(): Promise<Metadata> {
   const lang = await getLang();
   const title =
@@ -23,8 +23,8 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title,
     description,
-    openGraph: { title, description, images: ["/showcase/sample-input-photo.png"], type: "website" },
-    twitter: { card: "summary_large_image", title, description, images: ["/showcase/sample-input-photo.png"] },
+    openGraph: { title, description, type: "website" },
+    twitter: { card: "summary_large_image", title, description },
   };
 }
 
@@ -44,7 +44,7 @@ const DICT = {
     headline1: "一張相，一條片。",
     headline2: "AI 幫你搞掂晒。",
     subhead: "上載一張相，就有齊劇本、廣東話配音同字幕，仲有一條完整嘅招聘影片。唔使攝影，唔使剪接，唔使開拍。",
-    realOutput: "真實成品 · 唔係樣板",
+    realOutput: "示意圖 · 實際效果因人而異",
     howItWorks: "點樣用",
     howItWorksSub: "四個步驟，每步一鍵搞掂",
     steps: [
@@ -64,7 +64,7 @@ const DICT = {
     headline1: "One photo. One video.",
     headline2: "AI handles everything.",
     subhead: "Upload one photo — get a script, a Cantonese-dubbed voiceover, burned-in captions, and a finished recruitment video. No camera, no editor, no filming day.",
-    realOutput: "Real output · not a mockup",
+    realOutput: "Illustrative example",
     howItWorks: "How it works",
     howItWorksSub: "Four steps, one click each",
     steps: [
@@ -143,28 +143,41 @@ export default async function WelcomePage() {
               </div>
             </div>
 
-            {/* Photo -> video, close together. Stacks vertically on mobile,
-                sits side by side from sm up. */}
+            {/* Photo -> video, illustrated rather than real assets — the
+                previous img/video pair (sample-input-photo.png,
+                sample-output-video.mp4) turned out to be a watermarked
+                stock photo and a screen recording of an unrelated app, not
+                real/licensed material. Same treatment as FeatureHub.tsx's
+                flagship card mockup: honest about being illustrative. */}
             <div className="mx-auto w-full max-w-md lg:mx-0 lg:justify-self-end">
               <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
-                <div className="w-full max-w-[280px] overflow-hidden rounded-2xl border border-border bg-card shadow-xl shadow-black/5">
-                  <img
-                    src="/showcase/sample-input-photo.png"
-                    alt="Uploaded photo of an AI-generated person"
-                    className="aspect-[2/3] w-full object-cover"
-                  />
+                <div className="flex w-full max-w-[280px] items-center justify-center overflow-hidden rounded-2xl border border-border bg-secondary/60 shadow-xl shadow-black/5">
+                  <div className="flex aspect-[2/3] w-full items-center justify-center">
+                    <svg viewBox="0 0 24 24" width="64" height="64" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/60">
+                      <path d="M4 6.5A1.5 1.5 0 0 1 5.5 5h13A1.5 1.5 0 0 1 20 6.5v11a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5v-11Z M4 15l4.5-4.5a1.5 1.5 0 0 1 2.1 0L14 14M14 14l1.4-1.4a1.5 1.5 0 0 1 2.1 0L20 15 M9.5 9a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z" />
+                    </svg>
+                  </div>
                 </div>
                 <span className="rotate-90 text-3xl text-primary sm:rotate-0" aria-hidden>→</span>
-                <div className="w-full max-w-[280px] overflow-hidden rounded-2xl border border-border bg-card shadow-xl shadow-black/5">
-                  <video
-                    className="aspect-[2/3] w-full bg-black object-contain"
-                    src="/showcase/sample-output-video.mp4"
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
-                    preload="metadata"
-                  />
+                <div
+                  className="relative w-full max-w-[280px] overflow-hidden rounded-2xl border border-border shadow-xl shadow-black/5"
+                  style={{ background: "linear-gradient(160deg, #1B2350, #241B4D)" }}
+                >
+                  <div className="flex aspect-[2/3] w-full items-center justify-center">
+                    <svg viewBox="0 0 24 24" width="60" height="60" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="9" r="3.5" />
+                      <path d="M5 19c1.2-3.5 4-5 7-5s5.8 1.5 7 5" />
+                    </svg>
+                  </div>
+                  <span className="absolute left-3 top-3 flex h-7 w-7 items-center justify-center rounded bg-white/15 text-white backdrop-blur-sm">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M5 4.5h9l5 5V19a.5.5 0 0 1-.5.5H5A.5.5 0 0 1 4.5 19V5A.5.5 0 0 1 5 4.5Z M14 4.5V9h4.5 M8 13h8M8 16h5" />
+                    </svg>
+                  </span>
+                  <div className="absolute inset-x-3 bottom-3 rounded bg-black/60 px-2.5 py-2">
+                    <div className="h-[4px] w-[75%] rounded-full bg-white/85" />
+                    <div className="mt-1.5 h-[4px] w-[45%] rounded-full bg-white/85" />
+                  </div>
                 </div>
               </div>
               <p className="mt-3 text-center font-mono text-xs uppercase tracking-wide text-muted-foreground">

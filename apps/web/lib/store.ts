@@ -11,6 +11,7 @@
 import { randomUUID } from "crypto";
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
+import type { GenerationKind } from "./generation-types";
 
 const DATA_DIR = path.join(process.cwd(), ".data");
 const DB_PATH = path.join(DATA_DIR, "db.json");
@@ -28,7 +29,7 @@ export type MockProfile = {
 export type MockGeneration = {
   id: string;
   user_id: string;
-  kind: "video_script" | "shooting_script" | "content_idea";
+  kind: GenerationKind;
   direction: string;
   result: unknown;
   created_at: string;

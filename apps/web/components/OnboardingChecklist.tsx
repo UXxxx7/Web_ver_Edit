@@ -11,6 +11,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getOnboardingStatusAction } from "@/app/(app)/actions";
+import type { Lang } from "@/lib/i18n";
 
 const ICONS = {
   profile: <path d="M12 12a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z M5 19c1.2-3.5 4-5 7-5s5.8 1.5 7 5" />,
@@ -19,19 +20,35 @@ const ICONS = {
   voice: <path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z M6 11a6 6 0 0 0 12 0 M12 17v4 M9 21h6" />,
 };
 
-const STEPS = [
-  { icon: ICONS.profile, color: "#3E63FF", title: "填好你嘅資料", caption: "行業同品牌語氣，等 AI 生成更貼合你", cta: "去填資料", href: "/profile" },
-  { icon: ICONS.script, color: "#8B5CF6", title: "生成你嘅第一份文案", caption: "揸下面嘅範本，或者自己打個方向", cta: "睇返下面", href: "#brainstorm" },
-  { icon: ICONS.videoEdit, color: "#22C55E", title: "剪出你嘅第一條片", caption: "上載一條片，AI 幫你剪同加字幕", cta: "去 Agent", href: "/agent" },
-  { icon: ICONS.voice, color: "#F59E0B", title: "試吓聲音克隆", caption: "克隆你把聲，之後啲片自動用返你把聲", cta: "去試吓", href: "/agent" },
-] as const;
+const STEPS: Record<Lang, { icon: React.ReactNode; color: string; title: string; caption: string; cta: string; href: string }[]> = {
+  zh: [
+    { icon: ICONS.profile, color: "#3E63FF", title: "填好你嘅資料", caption: "行業同品牌語氣，等 AI 生成更貼合你", cta: "去填資料", href: "/profile" },
+    { icon: ICONS.script, color: "#8B5CF6", title: "生成你嘅第一份文案", caption: "揸下面嘅範本，或者自己打個方向", cta: "睇返下面", href: "#brainstorm" },
+    { icon: ICONS.videoEdit, color: "#22C55E", title: "剪出你嘅第一條片", caption: "上載一條片，AI 幫你剪同加字幕", cta: "去 Agent", href: "/agent" },
+    { icon: ICONS.voice, color: "#F59E0B", title: "試吓聲音克隆", caption: "克隆你把聲，之後啲片自動用返你把聲", cta: "去試吓", href: "/agent" },
+  ],
+  en: [
+    { icon: ICONS.profile, color: "#3E63FF", title: "Fill in your profile", caption: "Industry and brand voice, so AI generates content that fits you", cta: "Fill it in", href: "/profile" },
+    { icon: ICONS.script, color: "#8B5CF6", title: "Generate your first draft", caption: "Pick a template below, or type your own direction", cta: "See below", href: "#brainstorm" },
+    { icon: ICONS.videoEdit, color: "#22C55E", title: "Edit your first video", caption: "Upload a video — AI trims it and adds captions", cta: "Go to Agent", href: "/agent" },
+    { icon: ICONS.voice, color: "#F59E0B", title: "Try voice cloning", caption: "Clone your voice — future clips automatically use it", cta: "Try it", href: "/agent" },
+  ],
+};
+
+const T = {
+  zh: { heading: "完善你嘅帳戶", complete: "完成" },
+  en: { heading: "Complete your account", complete: "complete" },
+} satisfies Record<Lang, { heading: string; complete: string }>;
 
 export function OnboardingChecklist({
-  profileComplete, hasGeneration,
+  profileComplete, hasGeneration, lang,
 }: {
   profileComplete: boolean;
   hasGeneration: boolean; // already known from history apps/web already fetched — no need to round-trip apps/api for it
+  lang: Lang;
 }) {
+  const t = T[lang];
+  const steps = STEPS[lang];
   // job_count/voice_cloned live in apps/api (SQLite), not apps/web's own
   // profile/generations store — fetched client-side after mount rather
   // than blocking the whole dashboard's server render on a second
@@ -47,14 +64,14 @@ export function OnboardingChecklist({
   const doneCount = done.filter(Boolean).length;
 
   // Fully onboarded — get out of the way rather than nag forever.
-  if (doneCount === STEPS.length) return null;
+  if (doneCount === steps.length) return null;
 
   return (
     <div className="border-b border-border px-4 py-7 sm:px-8">
       <div className="mx-auto max-w-5xl">
         <div className="mb-3.5 flex items-baseline justify-between">
-          <h2 className="text-[15px] font-bold tracking-tight text-foreground">完善你嘅帳戶</h2>
-          <span className="text-[12px] text-muted-foreground">{doneCount}/{STEPS.length} 完成</span>
+          <h2 className="text-[15px] font-bold tracking-tight text-foreground">{t.heading}</h2>
+          <span className="text-[12px] text-muted-foreground">{doneCount}/{steps.length} {t.complete}</span>
         </div>
         <div className="mb-4 flex gap-1.5">
           {done.map((d, i) => (
@@ -62,7 +79,7 @@ export function OnboardingChecklist({
           ))}
         </div>
         <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
-          {STEPS.map((step, i) => (
+          {steps.map((step, i) => (
             <div
               key={step.title}
               className={`flex items-start gap-2.5 rounded-2xl border border-border bg-card p-3.5 shadow-[0_3px_16px_-6px_rgba(15,27,60,0.12)] transition-opacity ${done[i] ? "opacity-55" : ""}`}

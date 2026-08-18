@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { requireUser, signOut } from "@/lib/auth";
 import { addGeneration, getProfile } from "@/lib/data";
-import type { GenerationKind } from "@/lib/generation-types";
+import type { Beat, GenerationKind } from "@/lib/generation-types";
 
 export async function signOutAction() {
   await signOut();
@@ -14,11 +14,13 @@ const ENDPOINTS: Record<GenerationKind, string> = {
   video_script: "/video-scripts",
   shooting_script: "/shooting-scripts",
   content_idea: "/content-ideas",
+  combined_script: "/combined-scripts",
 };
 const RESULT_KEYS: Record<GenerationKind, string> = {
   video_script: "script",
   shooting_script: "script",
   content_idea: "idea",
+  combined_script: "script",
 };
 
 export type GenerateResult = { result: unknown } | { error: string };
@@ -30,7 +32,8 @@ export type GenerateResult = { result: unknown } | { error: string };
 export async function generateContentAction(
   kind: GenerationKind,
   direction: string,
-  lang: "zh" | "en"
+  lang: "zh" | "en",
+  movement?: string // only combined_script reads this; apps/api defaults it if omitted
 ): Promise<GenerateResult> {
   const user = await requireUser();
   direction = direction.trim();
@@ -44,7 +47,7 @@ export async function generateContentAction(
     res = await fetch(`${apiBase}${ENDPOINTS[kind]}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ direction, lang, brand_voice_notes: profile.brand_voice_notes }),
+      body: JSON.stringify({ direction, lang, brand_voice_notes: profile.brand_voice_notes, movement }),
       cache: "no-store",
     });
   } catch {
@@ -58,6 +61,49 @@ export async function generateContentAction(
 
   await addGeneration(user.id, kind, direction, result);
   return { result };
+}
+
+export type ExtendResult =
+  | { beats: Beat[]; estimated_duration_seconds: number | null }
+  | { error: string };
+
+// Continues an already-shown combined_script result with a few more beats,
+// instead of regenerating the whole thing — called from ResultCard's
+// "generate more" button once the user has seen a result they like. Not
+// persisted back into generation history (the original addGeneration call
+// already saved the base result); this just extends what's on screen.
+export async function extendCombinedScriptAction(
+  direction: string,
+  lang: "zh" | "en",
+  movement: string | undefined,
+  beats: Beat[]
+): Promise<ExtendResult> {
+  const user = await requireUser();
+  const profile = await getProfile(user.id);
+  const apiBase = process.env.API_BASE_URL || "http://localhost:8001";
+
+  let res: Response;
+  try {
+    res = await fetch(`${apiBase}/combined-scripts/more`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        direction, lang, movement: movement || "walk", beats,
+        brand_voice_notes: profile.brand_voice_notes,
+      }),
+      cache: "no-store",
+    });
+  } catch {
+    return { error: "Couldn't reach the generator service — is apps/api running?" };
+  }
+
+  if (!res.ok) return { error: "Couldn't generate more — try again." };
+  const data = await res.json();
+  const more = data.more;
+  if (!more || !Array.isArray(more.beats) || !more.beats.length) {
+    return { error: "Couldn't generate more — try again." };
+  }
+  return { beats: more.beats, estimated_duration_seconds: more.estimated_duration_seconds ?? null };
 }
 
 export type Suggestion = { label: string; text: string };

@@ -201,6 +201,13 @@ class VideoTrimmer(BaseTool):
         temp_files: list[Path] = []
         temp_dir = output_path.parent / ".concat_tmp"
         temp_dir.mkdir(parents=True, exist_ok=True)
+        # Declared here (not just at its point of use further down) so the
+        # `finally` block below can safely check it even if the per-segment
+        # cut loop raises before ever reaching the concat-list-file step —
+        # real symptom: an ffmpeg failure while cutting a segment used to
+        # get masked by "cannot access local variable 'list_path'" from the
+        # cleanup code itself, instead of surfacing the actual error.
+        list_path: Path | None = None
 
         try:
             for i, seg in enumerate(segments):
@@ -324,7 +331,7 @@ class VideoTrimmer(BaseTool):
             for tf in temp_files:
                 if tf.parent == temp_dir and tf.exists():
                     tf.unlink()
-            if list_path.exists():
+            if list_path is not None and list_path.exists():
                 list_path.unlink()
             if temp_dir.exists():
                 try:
