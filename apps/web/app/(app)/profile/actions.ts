@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireUser } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { deleteCurrentAccount, requireUser } from "@/lib/auth";
 import { upsertProfile } from "@/lib/data";
 
 export type ProfileFormState = { error?: string; saved?: boolean };
@@ -50,4 +51,12 @@ export async function updateAvatarAction(dataUrl: string): Promise<AvatarResult>
   revalidatePath("/profile");
   revalidatePath("/");
   return { ok: true };
+}
+
+// Irreversible — see deleteCurrentAccount's own comment for what it does
+// and does not remove in Supabase mode. Redirects out of the app since
+// this account's session is gone once it returns.
+export async function deleteAccountAction(): Promise<void> {
+  await deleteCurrentAccount();
+  redirect("/login");
 }

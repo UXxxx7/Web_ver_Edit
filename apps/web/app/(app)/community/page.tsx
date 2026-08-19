@@ -15,7 +15,13 @@ export default async function CommunityPage() {
   const currentUserName = profile.display_name.trim() || user.email;
   return (
     <div className="dash">
-      <CommunityFeed initialPosts={initialPosts} currentUserId={user.id} currentUserName={currentUserName} lang={lang} />
+      <CommunityFeed
+        initialPosts={initialPosts}
+        currentUserId={user.id}
+        currentUserName={currentUserName}
+        currentUserAvatarUrl={profile.avatar_url}
+        lang={lang}
+      />
     </div>
   );
 }

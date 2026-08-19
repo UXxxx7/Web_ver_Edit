@@ -17,7 +17,7 @@
 // same spirit.
 
 import { requireUser } from "@/lib/auth";
-import type { EditJob, SavedVideo } from "@/lib/edit-jobs";
+import type { EditJob, JobVersion, SavedVideo } from "@/lib/edit-jobs";
 
 const API_BASE = process.env.API_BASE_URL || "http://localhost:8001";
 
@@ -163,6 +163,61 @@ export async function getMyVideosAction(): Promise<ActionResult<SavedVideo[]>> {
     if (!res.ok) return { ok: false, error: `Couldn't load your videos (HTTP ${res.status}).` };
     const data = await res.json();
     return { ok: true, data: data.videos as SavedVideo[] };
+  } catch {
+    return { ok: false, error: "Couldn't reach the editor service." };
+  }
+}
+
+// Both scoped under /users/{id}/jobs/{jobId}/... (not just /jobs/{jobId})
+// so apps/api's rename_job/delete_job can enforce ownership — see those
+// functions' own comments for why this is a harder requirement for a
+// mutation/deletion than the read-only endpoints elsewhere in this file.
+export async function renameVideoAction(jobId: string, title: string): Promise<ActionResult<{ title: string | null }>> {
+  const user = await requireUser();
+  const form = new FormData();
+  form.set("title", title);
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}/users/${encodeURIComponent(user.id)}/jobs/${encodeURIComponent(jobId)}/rename`, {
+      method: "POST", body: form,
+    });
+  } catch {
+    return { ok: false, error: "Couldn't reach the editor service." };
+  }
+  if (!res.ok) return { ok: false, error: `Couldn't rename (HTTP ${res.status}).` };
+  const data = await res.json();
+  return { ok: true, data: { title: data.title } };
+}
+
+export async function deleteVideoAction(jobId: string): Promise<ActionResult<void>> {
+  const user = await requireUser();
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}/users/${encodeURIComponent(user.id)}/jobs/${encodeURIComponent(jobId)}`, {
+      method: "DELETE",
+    });
+  } catch {
+    return { ok: false, error: "Couldn't reach the editor service." };
+  }
+  if (!res.ok) return { ok: false, error: `Couldn't delete (HTTP ${res.status}).` };
+  return { ok: true, data: undefined };
+}
+
+export async function getJobVersionsAction(jobId: string): Promise<ActionResult<JobVersion[]>> {
+  await requireUser();
+  try {
+    const res = await fetch(`${API_BASE}/jobs/${encodeURIComponent(jobId)}/versions`, { cache: "no-store" });
+    if (!res.ok) return { ok: false, error: `Couldn't load version history (HTTP ${res.status}).` };
+    const data = await res.json();
+    const versions = data.versions as {
+      version_number: number; filename: string; edit_request: string | null; created_at: string | null;
+    }[];
+    return {
+      ok: true,
+      data: versions.map((v) => ({
+        versionNumber: v.version_number, filename: v.filename, editRequest: v.edit_request, createdAt: v.created_at,
+      })),
+    };
   } catch {
     return { ok: false, error: "Couldn't reach the editor service." };
   }

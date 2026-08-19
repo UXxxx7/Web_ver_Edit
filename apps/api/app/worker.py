@@ -11,7 +11,9 @@ from typing import Any, Optional
 from .config import get_config
 from .database import JobStatus, MessageDirection, MessageType
 from .job_manager import (
+    create_job_version,
     get_job,
+    list_job_versions,
     save_message,
     update_job_fields,
     update_job_status,
@@ -187,6 +189,23 @@ def run_final_render(job_id: str) -> None:
         result = run_final_export(job)
 
         if result.get("final_path"):
+            # Archive this render as its own version BEFORE anything else —
+            # pipeline_runner.run_final_export always writes to the same
+            # final.mp4 path (ffmpeg's `-y` overwrites it), so a later
+            # revise -> re-render destroys these bytes with nothing left to
+            # go back to unless a copy is taken right here, right after this
+            # render finished (see JobVersion's own docstring). Best-effort:
+            # a failure here shouldn't block delivering the video itself.
+            try:
+                import shutil
+
+                existing_versions = len(list_job_versions(job_id))
+                version_filename = f"final_v{existing_versions + 1}.mp4"
+                shutil.copyfile(job.final_path_local, job.job_dir / version_filename)
+                create_job_version(job_id, version_filename, job.edit_request)
+            except Exception:
+                logger.exception(f"版本存檔失敗 {job_id}（不阻塞交付）")
+
             update_job_fields(
                 job_id,
                 final_path=result["final_path"],
