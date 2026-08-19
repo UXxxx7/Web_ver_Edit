@@ -25,6 +25,7 @@ export type PlannedEdit = { summary?: string; edit_operations: EditOperation[] }
 
 export type EditJob = {
   job_id: string;
+  title: string | null;
   status: JobStatus;
   input_video_path: string | null;
   preview_path: string | null;
@@ -51,10 +52,22 @@ export type EditJob = {
 // planned_edit — server only returns DONE jobs here, so those don't apply).
 export type SavedVideo = {
   job_id: string;
+  title: string | null;
   edit_request: string;
   pipeline: string;
   final_path: string | null;
   created_at: string | null;
+};
+
+// GET /jobs/{id}/versions — an archived snapshot of one successful final
+// render (see apps/api's JobVersion model). A job only accumulates more
+// than one of these once it's been revised and re-rendered at least once;
+// the live job.final_path always points at the newest one.
+export type JobVersion = {
+  versionNumber: number;
+  filename: string;
+  editRequest: string | null;
+  createdAt: string | null;
 };
 
 export function basename(path: string | null): string | null {

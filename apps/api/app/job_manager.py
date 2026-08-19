@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import uuid
 from typing import Optional
 
@@ -11,6 +12,7 @@ from .database import (
     ClipStatus,
     Job,
     JobStatus,
+    JobVersion,
     Message,
     MessageDirection,
     MessageType,
@@ -200,6 +202,50 @@ def update_job_fields(job_id: str, **kwargs) -> Optional[Job]:
                     setattr(job, key, value)
             session.commit()
             session.refresh(job)
+        return job
+    finally:
+        session.close()
+
+
+def delete_job(job_id: str, user_id: int) -> bool:
+    """刪除呢個 job——連埋佢啲子表 row（Message/Clip/JobVersion，冇喺 DB 層
+    設 FK cascade，SQLite 呢度又冇開 foreign_keys pragma，唔會自動連鎖刪走，
+    要手動刪）同 job_dir 底下啲檔案。
+
+    淨係本人先刪得走：`Job.user_id == user_id` 唔啱就當唔存在處理（返
+    False，唔會俾 caller 分辨到「唔存在」定「唔係你」）。呢個同
+    get_job()/GET /jobs/{id} 嗰個有記錄嘅「冇做 ownership check」唔同——嗰個
+    係讀，呢個係刪，風險完全唔同級數，新加呢個刪除功能唔可以照抄嗰個
+    做法留低同一個窿。"""
+    session = get_session()
+    try:
+        job = session.query(Job).filter(Job.id == job_id, Job.user_id == user_id).first()
+        if job is None:
+            return False
+        job_dir = job.job_dir
+        session.query(Message).filter(Message.job_id == job_id).delete()
+        session.query(Clip).filter(Clip.job_id == job_id).delete()
+        session.query(JobVersion).filter(JobVersion.job_id == job_id).delete()
+        session.delete(job)
+        session.commit()
+    finally:
+        session.close()
+    shutil.rmtree(job_dir, ignore_errors=True)
+    return True
+
+
+def rename_job(job_id: str, user_id: int, title: str) -> Optional[Job]:
+    """改個顯示名——同 delete_job 一樣要 ownership check（唔係本人嘅 job
+    唔畀改）。空字串當「清空自訂名」處理（MyVideos.tsx 落返去用
+    edit_request 做顯示名），唔係當錯誤。"""
+    session = get_session()
+    try:
+        job = session.query(Job).filter(Job.id == job_id, Job.user_id == user_id).first()
+        if job is None:
+            return None
+        job.title = title.strip() or None
+        session.commit()
+        session.refresh(job)
         return job
     finally:
         session.close()
@@ -425,5 +471,48 @@ def update_clip_status(clip_id: int, status: ClipStatus, error_message: Optional
             session.commit()
             session.refresh(clip)
         return clip
+    finally:
+        session.close()
+
+
+# ---------------------------------------------------------------------------
+# JobVersion CRUD (final-render snapshots — see JobVersion's own docstring)
+# ---------------------------------------------------------------------------
+
+def create_job_version(job_id: str, output_filename: str, edit_request: Optional[str]) -> JobVersion:
+    session = get_session()
+    try:
+        # version_number is 1-indexed and derived from the current count
+        # rather than stored/incremented elsewhere — this table is only
+        # ever appended to (see worker.run_final_render), so count+1 at
+        # insert time can't race with itself under the same job_id in
+        # practice (renders for one job run sequentially, never concurrently).
+        existing_count = session.query(JobVersion).filter(JobVersion.job_id == job_id).count()
+        version = JobVersion(
+            job_id=job_id,
+            version_number=existing_count + 1,
+            output_filename=output_filename,
+            edit_request=edit_request,
+        )
+        session.add(version)
+        session.commit()
+        session.refresh(version)
+        return version
+    finally:
+        session.close()
+
+
+def list_job_versions(job_id: str) -> list[JobVersion]:
+    session = get_session()
+    try:
+        versions = (
+            session.query(JobVersion)
+            .filter(JobVersion.job_id == job_id)
+            .order_by(JobVersion.version_number.desc())
+            .all()
+        )
+        for v in versions:
+            session.expunge(v)
+        return versions
     finally:
         session.close()

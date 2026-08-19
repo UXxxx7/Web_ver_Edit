@@ -368,6 +368,18 @@
 }
 @keyframes dash-spin { to { transform: rotate(360deg); } }
 
+/* CommunityFeed.tsx — double-tap-to-like heart, same beat as Instagram's:
+   pop past full size, settle back, hold, then fade. */
+.heart-burst { animation: heart-burst 0.9s ease-out forwards; }
+@keyframes heart-burst {
+  0% { transform: scale(0.3); opacity: 0; }
+  15% { transform: scale(1.15); opacity: 1; }
+  30% { transform: scale(0.95); }
+  45% { transform: scale(1.05); }
+  65% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1); opacity: 0; }
+}
+
 .gen-card { max-width: 440px; }
 .gen-card .gen-summary { font-size: 13.5px; line-height: 1.5; margin-bottom: 8px; }
 .gen-card .gen-body { font-size: 13px; line-height: 1.55; white-space: pre-wrap; margin: 8px 0; }

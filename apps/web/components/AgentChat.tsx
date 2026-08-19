@@ -21,9 +21,33 @@ import { createCrollJob, createEditJob, createVoiceClone, getEditJobStatus } fro
 import { AgentJobBubble } from "@/components/AgentJobBubble";
 import { RecentCreationsRail } from "@/components/RecentCreationsRail";
 import { addRecentJob } from "@/lib/recent-jobs";
-import { loadChatHistory, saveChatHistory } from "@/lib/agent-chat-history";
+import {
+  createConversation, deleteConversation, getActiveConversationId, getConversation,
+  listConversations, saveConversationMessages, setActiveConversationId, type Conversation,
+} from "@/lib/agent-conversations";
 import type { EditJob } from "@/lib/edit-jobs";
 import type { Lang } from "@/lib/i18n";
+
+// Minimal shape of the (non-standard, vendor-prefixed) Web Speech API —
+// not in TypeScript's DOM lib typings, so declared by hand here rather
+// than pulling in a whole @types package for one small feature.
+type SpeechRecognitionLike = {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
+  onerror: (() => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+
+function getSpeechRecognitionCtor(): (new () => SpeechRecognitionLike) | null {
+  if (typeof window === "undefined") return null;
+  const w = window as unknown as Record<string, unknown>;
+  const ctor = w.SpeechRecognition ?? w.webkitSpeechRecognition;
+  return typeof ctor === "function" ? (ctor as new () => SpeechRecognitionLike) : null;
+}
 
 type Media = "video" | "image" | "audio";
 type Role = "main" | "reference" | "broll";
@@ -82,9 +106,17 @@ const ICONS = {
   volumeMute: "M4 9v6h4l5 5V4L8 9H4Z M16 9l4 4m0-4-4 4",
   plus: "M12 5v14M5 12h14",
   arrowUp: "M12 19V5 M5 12l7-7 7 7",
+  // Same bubble path as CommunityFeed.tsx's ICONS.comment.
+  chat: "M4 8.5A1.5 1.5 0 0 1 5.5 7h13A1.5 1.5 0 0 1 20 8.5v5A1.5 1.5 0 0 1 18.5 15H10l-4 3v-3H5.5A1.5 1.5 0 0 1 4 13.5v-5Z",
+  chevronDown: "M6 9l6 6 6-6",
   // Same path as CommunityFeed.tsx's ICONS.trash — kept identical so
   // "remove this" reads as the same action across the app.
   trash: "M4 7h16 M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2 M7 7l1 13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1l1-13 M10 11v6 M14 11v6",
+  search: "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14Z M16.2 16.2 21 21",
+  pencil: "M4 17.5V20h2.5L18.4 8.1a1.5 1.5 0 0 0 0-2.1l-.4-.4a1.5 1.5 0 0 0-2.1 0L4 17.5Z M13.5 6.5l3 3",
+  grid: "M4 5.5A1.5 1.5 0 0 1 5.5 4h4A1.5 1.5 0 0 1 11 5.5v4A1.5 1.5 0 0 1 9.5 11h-4A1.5 1.5 0 0 1 4 9.5v-4Z M13 5.5A1.5 1.5 0 0 1 14.5 4h4A1.5 1.5 0 0 1 20 5.5v4A1.5 1.5 0 0 1 18.5 11h-4A1.5 1.5 0 0 1 13 9.5v-4Z M4 14.5A1.5 1.5 0 0 1 5.5 13h4a1.5 1.5 0 0 1 1.5 1.5v4A1.5 1.5 0 0 1 9.5 20h-4A1.5 1.5 0 0 1 4 18.5v-4Z M13 14.5a1.5 1.5 0 0 1 1.5-1.5h4a1.5 1.5 0 0 1 1.5 1.5v4a1.5 1.5 0 0 1-1.5 1.5h-4a1.5 1.5 0 0 1-1.5-1.5v-4Z",
+  mic: "M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z M6 11a6 6 0 0 0 12 0 M12 17v4 M9 21h6",
+  close: "M6 6l12 12M18 6 6 18",
 };
 
 function Icon({ path, size = 13 }: { path: string; size?: number }) {
@@ -116,6 +148,40 @@ const QUICK_ACTIONS: Record<Lang, { icon: string; label: string; text: string }[
     { icon: ICONS.captions, label: "Minimal captions", text: "Add captions, minimal style: small white text, bottom of the screen, no highlight effect." },
     { icon: ICONS.volumeUp, label: "Clean speech", text: "Clean up the audio: clear speech, remove distracting background noise (clean_speech)." },
     { icon: ICONS.volumeMute, label: "Heavy noise reduction", text: "The audio environment is very noisy — apply heavy noise reduction (noise_reduce)." },
+  ],
+};
+
+// Fuller template gallery behind a "More templates" button — same idea as
+// the QUICK_ACTIONS chips (ready-made instructions, not invented
+// capabilities), just more of them, in the visual-card style TemplateGallery.tsx
+// uses elsewhere. Grounded in lib/edit-jobs.ts's OPERATION_LABELS_BY_LANG —
+// every entry here maps onto a real edit_operations type the planner
+// already emits (remove_filler, remove_silences, auto_reframe, apply_style,
+// color_grade), not a wishlist capability. insert_broll isn't included:
+// that operation needs actual b-roll files attached, which a text template
+// alone can't provide.
+const EDIT_TEMPLATES: Record<Lang, { icon: string; color: string; title: string; body: string; text: string }[]> = {
+  zh: [
+    { icon: ICONS.captions, color: "#3E63FF", title: "TikTok字幕", body: "大隻黃色字，逐隻highlight", text: "加字幕，用TikTok風格：大隻黃色字，逐隻字highlight，擺喺畫面中下方。" },
+    { icon: ICONS.captions, color: "#3E63FF", title: "簡約字幕", body: "細粒白字，冇特效", text: "加字幕，簡約風格：細粒白色字，喺畫面最底，唔使highlight效果。" },
+    { icon: ICONS.volumeUp, color: "#22C55E", title: "人聲清晰", body: "減走背景雜音", text: "洗靚把聲：人聲清晰，減走吵耳嘅背景雜音（clean_speech）。" },
+    { icon: ICONS.volumeMute, color: "#22C55E", title: "強力降噪", body: "環境好嘈嗰種", text: "把聲環境好嘈，幫我強力降噪（noise_reduce）。" },
+    { icon: ICONS.trash, color: "#8B5CF6", title: "剪走贅字", body: "「即係」「咁樣」呢啲口頭禪", text: "剪走贅字同口誤，例如「即係」「咁樣」呢啲口頭禪，等條片講嘢更爽快。" },
+    { icon: ICONS.trash, color: "#8B5CF6", title: "剪走靜音位", body: "長停頓一律剪走", text: "剪走靜音位同埋太長嘅停頓，等條片節奏更緊湊。" },
+    { icon: ICONS.video, color: "#F59E0B", title: "裁做直度", body: "9:16，啱晒Reels/Shorts", text: "自動裁做直度 9:16，啱晒喺Reels/TikTok/Shorts播。" },
+    { icon: ICONS.grid, color: "#F59E0B", title: "套用動畫範本", body: "自動加標題/轉場動畫", text: "套用一個動畫範本，加返啲標題卡同轉場動畫，睇落更專業。" },
+    { icon: ICONS.image, color: "#EF4444", title: "調色", body: "統一色調，更好睇", text: "幫條片調色，統一晒成條片嘅色調，睇落更專業。" },
+  ],
+  en: [
+    { icon: ICONS.captions, color: "#3E63FF", title: "TikTok captions", body: "Big bold yellow, word highlight", text: "Add captions, TikTok style: big bold yellow text, word-by-word highlight, lower-middle of the screen." },
+    { icon: ICONS.captions, color: "#3E63FF", title: "Minimal captions", body: "Small white, no effects", text: "Add captions, minimal style: small white text, bottom of the screen, no highlight effect." },
+    { icon: ICONS.volumeUp, color: "#22C55E", title: "Clean speech", body: "Remove background noise", text: "Clean up the audio: clear speech, remove distracting background noise (clean_speech)." },
+    { icon: ICONS.volumeMute, color: "#22C55E", title: "Heavy noise reduction", body: "For loud/noisy rooms", text: "The audio environment is very noisy — apply heavy noise reduction (noise_reduce)." },
+    { icon: ICONS.trash, color: "#8B5CF6", title: "Remove filler words", body: "\"Um\", \"like\", false starts", text: "Remove filler words and false starts (\"um\", \"like\", etc.) so the video sounds tighter." },
+    { icon: ICONS.trash, color: "#8B5CF6", title: "Cut dead air", body: "Trim long pauses", text: "Cut dead air and long pauses to tighten up the pacing." },
+    { icon: ICONS.video, color: "#F59E0B", title: "Reframe to vertical", body: "9:16, ready for Reels/Shorts", text: "Auto-reframe to vertical 9:16, ready for Reels/TikTok/Shorts." },
+    { icon: ICONS.grid, color: "#F59E0B", title: "Apply animated template", body: "Title cards + transitions", text: "Apply an animated template — add title cards and transitions to make it look more polished." },
+    { icon: ICONS.image, color: "#EF4444", title: "Color grade", body: "Consistent, polished look", text: "Color grade the video for a consistent, more polished look throughout." },
   ],
 };
 
@@ -156,10 +222,23 @@ const AGENT_T = {
     editedPlaceholder: "講吓你想點剪…",
     startPlaceholder: "打段訊息，或者上載影片/相片/聲音樣本…",
     attachTitle: "上載影片、相片或者聲音樣本",
-    applyTemplate: "套用模板",
-    aiWrite: "AI 現寫",
+    applyTemplate: "簡單套版",
+    applyTemplateHint: "跟返一個現成範本剪，效果穩定啲，啱新手。",
+    aiWrite: "AI自由創作",
+    aiWriteHint: "AI由零開始度個方案，發揮空間大啲，但效果會更難預測。",
     send: "傳送",
     noMessage: "（冇訊息）",
+    newChat: "開新對話",
+    noConversations: "仲未有對話記錄。",
+    untitledChat: "新對話",
+    searchConversations: "搜尋對話…",
+    noSearchResults: "搵唔到相關對話。",
+    editMessage: "編輯",
+    moreTemplates: "更多範本",
+    templatesHeading: "剪片範本",
+    closeTemplates: "關閉",
+    micTitle: "語音輸入",
+    listening: "聆聽緊…",
   },
   en: {
     introHeading: "Upload a video, photo, or voice sample",
@@ -181,17 +260,34 @@ const AGENT_T = {
     editedPlaceholder: "Say how you want it edited…",
     startPlaceholder: "Type a message, or attach a video/photo/voice sample…",
     attachTitle: "Attach video, photo, or voice sample",
-    applyTemplate: "Apply template",
-    aiWrite: "AI-authored",
+    applyTemplate: "Simple template",
+    applyTemplateHint: "Follows a ready-made template — more predictable, good for a first try.",
+    aiWrite: "AI freeform",
+    aiWriteHint: "AI plans the edit from scratch — more creative range, but less predictable.",
     send: "Send",
     noMessage: "(no message)",
+    newChat: "New chat",
+    noConversations: "No conversations yet.",
+    untitledChat: "New chat",
+    searchConversations: "Search chats…",
+    noSearchResults: "No matching conversations.",
+    editMessage: "Edit",
+    moreTemplates: "More templates",
+    templatesHeading: "Edit templates",
+    closeTemplates: "Close",
+    micTitle: "Voice input",
+    listening: "Listening…",
   },
 } satisfies Record<Lang, {
   introHeading: string; introSub: string; unsupportedFile: string; mixedAssets: string; needMain: string;
   onlyOneMain: string; filesCount: (n: number) => string; fallbackReply: string; voiceCloneReady: string;
   dropToUpload: string; roleLabel: string; mainRole: string; referenceRole: string; brollRole: string;
   cuePlaceholder: string; remove: string; editedPlaceholder: string; startPlaceholder: string;
-  attachTitle: string; applyTemplate: string; aiWrite: string; send: string; noMessage: string;
+  attachTitle: string; applyTemplate: string; applyTemplateHint: string; aiWrite: string; aiWriteHint: string;
+  send: string; noMessage: string;
+  newChat: string; noConversations: string; untitledChat: string; searchConversations: string;
+  noSearchResults: string; editMessage: string; moreTemplates: string; templatesHeading: string;
+  closeTemplates: string; micTitle: string; listening: string;
 }>;
 
 function AgentIntro({ onAttach, lang }: { onAttach: () => void; lang: Lang }) {
@@ -234,6 +330,29 @@ function AgentIntro({ onAttach, lang }: { onAttach: () => void; lang: Lang }) {
 export function AgentChat({ lang }: { lang: Lang }) {
   const t = AGENT_T[lang];
   const [messages, setMessages] = useState<ChatMsg[]>([]);
+  // Multiple, switchable conversations (see lib/agent-conversations.ts) —
+  // `activeId` is which one `messages` currently reflects; `conversations`
+  // is only the summary list the switcher dropdown renders (id/title/
+  // updatedAt), not a second copy of every message array.
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [conversations, setConversations] = useState<Conversation<ChatMsg>[]>([]);
+  const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [convSearch, setConvSearch] = useState("");
+  const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [listening, setListening] = useState(false);
+  // Starts false on both server and client's first render (SSR has no
+  // `window`, so this can't be computed in the initializer without a
+  // hydration mismatch — same reasoning as ThemeToggle.tsx's own
+  // mounted-gate), flipped true after mount if the browser actually
+  // supports the API.
+  const [micSupported, setMicSupported] = useState(false);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  useEffect(() => {
+    // Deferred a tick, same reasoning as the conversation-restore effect
+    // below — avoids react-hooks/set-state-in-effect's synchronous-setState
+    // warning, not working around a real hydration concern here.
+    Promise.resolve().then(() => setMicSupported(!!getSpeechRecognitionCtor()));
+  }, []);
   // Restore after mount, not via a useState lazy initializer — this
   // component is server-rendered first (it's a Client Component, but
   // Next.js still renders it to HTML on the server for the initial
@@ -254,7 +373,20 @@ export function AgentChat({ lang }: { lang: Lang }) {
     // synchronously in the effect body trips eslint's
     // react-hooks/set-state-in-effect (caught by CI, not local tsc).
     Promise.resolve().then(() => {
-      setMessages(loadChatHistory<ChatMsg>());
+      let convs = listConversations<ChatMsg>();
+      let id = getActiveConversationId();
+      if (!id || !convs.some((c) => c.id === id)) {
+        if (convs.length === 0) {
+          const conv = createConversation<ChatMsg>();
+          convs = [conv];
+        } else {
+          setActiveConversationId(convs[0].id);
+        }
+        id = convs[0]?.id ?? getActiveConversationId();
+      }
+      setConversations(convs);
+      setActiveId(id);
+      setMessages(convs.find((c) => c.id === id)?.messages ?? []);
       restoredRef.current = true;
     });
   }, []);
@@ -266,8 +398,54 @@ export function AgentChat({ lang }: { lang: Lang }) {
   // first with the still-empty initial `messages` and clobber whatever was
   // saved, a moment before the restore effect even reads it back.
   useEffect(() => {
-    if (restoredRef.current) saveChatHistory(messages);
-  }, [messages]);
+    if (!restoredRef.current || !activeId) return;
+    const firstUserText = messages.find((m) => m.role === "user")?.text;
+    saveConversationMessages(activeId, messages, firstUserText);
+    setConversations(listConversations<ChatMsg>());
+  }, [messages, activeId]);
+
+  function switchConversation(id: string) {
+    const conv = getConversation<ChatMsg>(id);
+    if (!conv) return;
+    setActiveConversationId(id);
+    setActiveId(id);
+    setMessages(conv.messages);
+    setSwitcherOpen(false);
+    setConvSearch("");
+  }
+
+  function startNewConversation() {
+    const conv = createConversation<ChatMsg>();
+    setActiveId(conv.id);
+    setMessages([]);
+    setConversations(listConversations<ChatMsg>());
+    setSwitcherOpen(false);
+    setConvSearch("");
+  }
+
+  function removeConversation(id: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    deleteConversation(id);
+    const remaining = listConversations<ChatMsg>();
+    setConversations(remaining);
+    if (id === activeId) {
+      if (remaining.length > 0) switchConversation(remaining[0].id);
+      else startNewConversation();
+    }
+  }
+
+  // Title-or-message-text search over the switcher dropdown — becomes
+  // necessary the moment someone has more than a handful of saved
+  // conversations and needs to find "that one where I asked about captions"
+  // rather than scrolling the whole list.
+  const filteredConversations = convSearch.trim()
+    ? conversations.filter((c) => {
+        const q = convSearch.trim().toLowerCase();
+        if ((c.title || "").toLowerCase().includes(q)) return true;
+        return c.messages.some((m) => "text" in m && m.text?.toLowerCase().includes(q));
+      })
+    : conversations;
+
   const [text, setText] = useState("");
   const [assets, setAssets] = useState<Asset[]>([]);
   const [arm, setArm] = useState<Arm>("arm_a");
@@ -279,6 +457,12 @@ export function AgentChat({ lang }: { lang: Lang }) {
 
   const hasVideo = assets.some((a) => a.media === "video");
   const showIntro = messages.length === 0;
+  // The one user message "Edit" can act on — see editMessage's own
+  // comment for why this is scoped to the latest turn and to plain-text
+  // (no attachment) messages only.
+  const editableUserMsgId = !sending
+    ? [...messages].reverse().find((m) => m.role === "user" && !m.attachmentName)?.id
+    : undefined;
 
   function pushBotText(text: string) {
     setMessages((m) => [...m, { id: nextId(), role: "bot", kind: "text", text }]);
@@ -357,6 +541,47 @@ export function AgentChat({ lang }: { lang: Lang }) {
     setText("");
     setAssets([]);
     setArm("arm_a");
+  }
+
+  // Recall the most recent user turn back into the compose box for
+  // editing — the message and whatever bot reply followed it (fallback
+  // text, or a still-empty job placeholder) are dropped from the thread,
+  // same as ChatGPT's "edit and regenerate" removing the old answer.
+  // Scoped to plain-text turns only (no attachmentName): a turn that
+  // already kicked off a real job creation can't be "un-sent" the same
+  // way, since the job exists server-side the moment it's created.
+  function editMessage(msg: ChatMsg & { role: "user" }) {
+    const idx = messages.findIndex((m) => m.id === msg.id);
+    if (idx === -1) return;
+    setText(msg.text);
+    setMessages(messages.slice(0, idx));
+  }
+
+  function toggleVoiceInput() {
+    if (listening) {
+      recognitionRef.current?.stop();
+      return;
+    }
+    const Ctor = getSpeechRecognitionCtor();
+    if (!Ctor) return;
+    const recognition = new Ctor();
+    // Cantonese for the zh UI (matches this app's actual spoken-content
+    // language elsewhere, e.g. voice cloning), not Mandarin.
+    recognition.lang = lang === "zh" ? "zh-HK" : "en-US";
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.onresult = (event) => {
+      const transcript = Array.from(event.results)
+        .map((r) => r[0]?.transcript ?? "")
+        .join(" ")
+        .trim();
+      if (transcript) setText((prev) => (prev.trim() ? `${prev.trim()} ${transcript}` : transcript));
+    };
+    recognition.onerror = () => setListening(false);
+    recognition.onend = () => setListening(false);
+    recognitionRef.current = recognition;
+    setListening(true);
+    recognition.start();
   }
 
   async function handleSend() {
@@ -490,6 +715,88 @@ export function AgentChat({ lang }: { lang: Lang }) {
       )}
       <div className="flex flex-1">
         <div className="flex min-w-0 flex-1 flex-col">
+          {/* Conversation switcher — multiple saved threads (localStorage,
+              see lib/agent-conversations.ts), not just the one continuous
+              thread this used to be. A dropdown rather than a permanent
+              side rail: this page already has the global left nav plus
+              RecentCreationsRail on the right, and a third always-visible
+              sidebar just for chat history would be too much chrome,
+              especially on mobile where there's no room for it at all. */}
+          <div className="relative flex items-center justify-between gap-2 border-b border-border px-4 py-2.5 sm:px-5">
+            <button
+              type="button"
+              onClick={() => setSwitcherOpen((v) => !v)}
+              className="flex min-w-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-[13px] font-semibold text-foreground transition-colors hover:bg-secondary/60"
+            >
+              <Icon path={ICONS.chat} size={14} />
+              <span className="max-w-[200px] truncate">
+                {conversations.find((c) => c.id === activeId)?.title || t.untitledChat}
+              </span>
+              <Icon path={ICONS.chevronDown} size={13} />
+            </button>
+            <button
+              type="button"
+              onClick={startNewConversation}
+              className="flex shrink-0 items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-[12.5px] font-semibold text-foreground transition-colors hover:border-primary/50"
+            >
+              <Icon path={ICONS.plus} size={13} />
+              {t.newChat}
+            </button>
+
+            {switcherOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => { setSwitcherOpen(false); setConvSearch(""); }} aria-hidden />
+                <div className="absolute left-4 top-full z-20 mt-1.5 w-72 rounded-xl border border-border bg-card p-1.5 shadow-[0_8px_24px_-8px_rgba(15,27,60,0.25)] sm:left-5">
+                  {conversations.length > 3 && (
+                    <div className="mb-1 flex items-center gap-1.5 rounded-lg border border-border px-2 py-1.5">
+                      <Icon path={ICONS.search} size={13} />
+                      <input
+                        type="text"
+                        value={convSearch}
+                        onChange={(e) => setConvSearch(e.target.value)}
+                        placeholder={t.searchConversations}
+                        autoFocus
+                        className="min-w-0 flex-1 bg-transparent text-[12.5px] text-foreground outline-none placeholder:text-muted-foreground"
+                      />
+                    </div>
+                  )}
+                  {conversations.length === 0 && (
+                    <p className="px-2.5 py-2 text-[12.5px] text-muted-foreground">{t.noConversations}</p>
+                  )}
+                  {conversations.length > 0 && filteredConversations.length === 0 && (
+                    <p className="px-2.5 py-2 text-[12.5px] text-muted-foreground">{t.noSearchResults}</p>
+                  )}
+                  {filteredConversations.map((c) => (
+                    // A <div>, not a nested <button> — the per-row delete
+                    // button below needs to live inside the clickable row,
+                    // and a <button> can't validly contain another <button>.
+                    <div
+                      key={c.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => switchConversation(c.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") switchConversation(c.id);
+                      }}
+                      className={`group flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] transition-colors ${
+                        c.id === activeId ? "bg-secondary text-foreground" : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
+                      }`}
+                    >
+                      <span className="min-w-0 flex-1 truncate">{c.title || t.untitledChat}</span>
+                      <button
+                        type="button"
+                        onClick={(e) => removeConversation(c.id, e)}
+                        className="shrink-0 rounded p-1 opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+                      >
+                        <Icon path={ICONS.trash} size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
           {/* Compose lives above the thread now, not below it — the thread
               reverses newest-turn-first (same as Dashboard.tsx's
               BrainstormPanel), so the box you just typed into should sit
@@ -552,12 +859,73 @@ export function AgentChat({ lang }: { lang: Lang }) {
           )}
 
           {hasVideo && (
-            <div className="gen-suggestions">
-              {QUICK_ACTIONS[lang].map((a) => (
-                <button key={a.label} type="button" className="gen-chip" onClick={() => setText(a.text)}>
-                  <Icon path={a.icon} size={12} /> {a.label}
+            // Plain Tailwind here, not the legacy .gen-suggestions class —
+            // that class's own fixed 20px padding was sized for a
+            // full-width bar, not this centered mx-auto max-w-[720px]
+            // column, so it sat noticeably left of the asset tray/compose
+            // card above and below it. .gen-chip (the individual chip
+            // styling) is unaffected — only this wrapper changed.
+            <div className="px-4 sm:px-5">
+              <div className="mx-auto flex w-full max-w-[720px] flex-wrap gap-1.5 border-b border-border pb-2.5">
+                {QUICK_ACTIONS[lang].map((a) => (
+                  <button key={a.label} type="button" className="gen-chip" onClick={() => setText(a.text)}>
+                    <Icon path={a.icon} size={12} /> {a.label}
+                  </button>
+                ))}
+                <button type="button" className="gen-chip" onClick={() => setTemplatesOpen(true)}>
+                  <Icon path={ICONS.grid} size={12} /> {t.moreTemplates}
                 </button>
-              ))}
+              </div>
+            </div>
+          )}
+
+          {/* Full edit-template gallery (EDIT_TEMPLATES) — the QUICK_ACTIONS
+              chips above are the 4 most common; this is the rest, in the
+              same card-grid style TemplateGallery.tsx uses for the
+              brainstorm tool's own templates. Kept local to this file
+              rather than reusing that component directly since its
+              templates are for content generation, not video edits — same
+              visual language, different data and purpose. */}
+          {templatesOpen && (
+            <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-4" onClick={() => setTemplatesOpen(false)}>
+              <div
+                className="max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-border bg-card p-5 shadow-[0_8px_24px_-8px_rgba(15,27,60,0.25)]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between">
+                  <h2 className="text-[15px] font-bold text-foreground">{t.templatesHeading}</h2>
+                  <button
+                    type="button"
+                    onClick={() => setTemplatesOpen(false)}
+                    aria-label={t.closeTemplates}
+                    className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                  >
+                    <Icon path={ICONS.close} size={14} />
+                  </button>
+                </div>
+                <div className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+                  {EDIT_TEMPLATES[lang].map((tpl) => (
+                    <button
+                      key={tpl.title}
+                      type="button"
+                      onClick={() => {
+                        setText(tpl.text);
+                        setTemplatesOpen(false);
+                      }}
+                      className="flex flex-col items-start rounded-xl border border-border bg-card p-3 text-left transition-colors hover:border-primary/50"
+                    >
+                      <span
+                        className="flex h-8 w-8 items-center justify-center rounded-lg"
+                        style={{ background: `color-mix(in srgb, ${tpl.color} 14%, transparent)`, color: tpl.color }}
+                      >
+                        <Icon path={tpl.icon} size={15} />
+                      </span>
+                      <h3 className="mt-2 text-[12.5px] font-semibold text-foreground">{tpl.title}</h3>
+                      <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">{tpl.body}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 
@@ -590,11 +958,29 @@ export function AgentChat({ lang }: { lang: Lang }) {
                   >
                     <Icon path={ICONS.plus} size={16} />
                   </button>
+                  {micSupported && (
+                    <button
+                      type="button"
+                      onClick={toggleVoiceInput}
+                      title={t.micTitle}
+                      aria-pressed={listening}
+                      className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
+                        listening ? "bg-destructive/15 text-destructive" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                      }`}
+                    >
+                      {listening ? (
+                        <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-destructive" />
+                      ) : (
+                        <Icon path={ICONS.mic} size={16} />
+                      )}
+                    </button>
+                  )}
                   {hasVideo && (
                     <div className="flex items-center gap-0.5 rounded-full border border-border p-0.5">
                       <button
                         type="button"
                         onClick={() => setArm("arm_a")}
+                        title={t.applyTemplateHint}
                         className={`rounded-full px-2.5 py-1 text-[12px] font-semibold transition-colors ${
                           arm === "arm_a" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
                         }`}
@@ -604,6 +990,7 @@ export function AgentChat({ lang }: { lang: Lang }) {
                       <button
                         type="button"
                         onClick={() => setArm("arm_b")}
+                        title={t.aiWriteHint}
                         className={`rounded-full px-2.5 py-1 text-[12px] font-semibold transition-colors ${
                           arm === "arm_b" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
                         }`}
@@ -646,6 +1033,15 @@ export function AgentChat({ lang }: { lang: Lang }) {
                             )}
                             {msg.text || <span className="opacity-75">{t.noMessage}</span>}
                           </div>
+                          {msg.id === editableUserMsgId && (
+                            <button
+                              type="button"
+                              onClick={() => editMessage(msg)}
+                              className="mt-1 flex items-center gap-1 self-end text-[11.5px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+                            >
+                              <Icon path={ICONS.pencil} size={11} /> {t.editMessage}
+                            </button>
+                          )}
                         </div>
                       );
                     }
@@ -674,7 +1070,7 @@ export function AgentChat({ lang }: { lang: Lang }) {
 // (an in-progress one, so it renders the spinner line) so the rest of the
 // fields being empty is harmless; replaced by the real job within one round trip.
 const PENDING_JOB: EditJob = {
-  job_id: "", status: "RECEIVED", input_video_path: null, preview_path: null, final_path: null,
+  job_id: "", title: null, status: "RECEIVED", input_video_path: null, preview_path: null, final_path: null,
   planned_edit: null, error_message: null, current_stage: null, edit_request: "", degraded_operations: [],
   generation_cost_usd: 0, pipeline: "talking-head", created_at: null, updated_at: null,
 };

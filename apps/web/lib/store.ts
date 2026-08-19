@@ -44,9 +44,20 @@ export type MockPost = {
   liked_by: string[]; // user ids — mock-store equivalent of Supabase's post_likes table
   created_at: string;
 };
-type DB = { users: MockUser[]; profiles: MockProfile[]; generations: MockGeneration[]; posts: MockPost[] };
+export type MockComment = {
+  id: string;
+  post_id: string;
+  user_id: string;
+  author_name: string;
+  body: string;
+  created_at: string;
+};
+type DB = {
+  users: MockUser[]; profiles: MockProfile[]; generations: MockGeneration[];
+  posts: MockPost[]; comments: MockComment[];
+};
 
-const EMPTY_DB: DB = { users: [], profiles: [], generations: [], posts: [] };
+const EMPTY_DB: DB = { users: [], profiles: [], generations: [], posts: [], comments: [] };
 
 async function readDb(): Promise<DB> {
   try {
@@ -176,6 +187,78 @@ export async function deletePost(postId: string, userId: string): Promise<boolea
     const i = db.posts.findIndex((p) => p.id === postId && p.user_id === userId);
     if (i === -1) return false;
     db.posts.splice(i, 1);
+    db.comments = db.comments.filter((c) => c.post_id !== postId);
+    return true;
+  });
+}
+
+export async function getProfilesByIds(ids: string[]): Promise<MockProfile[]> {
+  const db = await readDb();
+  const idSet = new Set(ids);
+  return db.profiles.filter((p) => idSet.has(p.id));
+}
+
+export async function updatePost(postId: string, userId: string, caption: string): Promise<boolean> {
+  return withLock((db) => {
+    const post = db.posts.find((p) => p.id === postId && p.user_id === userId);
+    if (!post) return false;
+    post.caption = caption;
+    return true;
+  });
+}
+
+export async function countPostsByUser(userId: string): Promise<number> {
+  const db = await readDb();
+  return db.posts.filter((p) => p.user_id === userId).length;
+}
+
+// Danger-zone deletion (mock mode) — removes the user's own rows across
+// every mock table, plus scrubs their id out of other users' posts'
+// liked_by arrays so no dangling reference to a deleted user survives.
+export async function deleteUserAccount(userId: string): Promise<void> {
+  return withLock((db) => {
+    db.users = db.users.filter((u) => u.id !== userId);
+    db.profiles = db.profiles.filter((p) => p.id !== userId);
+    db.generations = db.generations.filter((g) => g.user_id !== userId);
+    db.posts = db.posts.filter((p) => p.user_id !== userId);
+    db.comments = db.comments.filter((c) => c.user_id !== userId);
+    for (const post of db.posts) {
+      const i = post.liked_by.indexOf(userId);
+      if (i !== -1) post.liked_by.splice(i, 1);
+    }
+  });
+}
+
+export async function countCommentsByPost(postIds: string[]): Promise<Record<string, number>> {
+  const db = await readDb();
+  const counts: Record<string, number> = {};
+  for (const id of postIds) counts[id] = 0;
+  for (const c of db.comments) if (c.post_id in counts) counts[c.post_id]++;
+  return counts;
+}
+
+export async function listComments(postId: string): Promise<MockComment[]> {
+  const db = await readDb();
+  return db.comments
+    .filter((c) => c.post_id === postId)
+    .sort((a, b) => a.created_at.localeCompare(b.created_at));
+}
+
+export async function addComment(
+  entry: Omit<MockComment, "id" | "created_at">
+): Promise<MockComment> {
+  return withLock((db) => {
+    const comment: MockComment = { ...entry, id: randomUUID(), created_at: new Date().toISOString() };
+    db.comments.push(comment);
+    return comment;
+  });
+}
+
+export async function deleteComment(commentId: string, userId: string): Promise<boolean> {
+  return withLock((db) => {
+    const i = db.comments.findIndex((c) => c.id === commentId && c.user_id === userId);
+    if (i === -1) return false;
+    db.comments.splice(i, 1);
     return true;
   });
 }
