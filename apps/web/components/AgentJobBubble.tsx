@@ -15,6 +15,7 @@ import {
 } from "@/app/(app)/agent/actions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { GenerateCaptionButton } from "@/components/GenerateCaptionButton";
 import { ShareToCommunityPanel } from "@/components/ShareToCommunityPanel";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { basename, IN_PROGRESS_STATUSES, operationLabels, type EditJob } from "@/lib/edit-jobs";
@@ -218,7 +219,13 @@ export function AgentJobBubble({ job, onUpdate, lang }: { job: EditJob; onUpdate
             </Button>
           </div>
           {reviseOpen && <ReviseBox text={reviseText} setText={setReviseText} disabled={actionPending} onSubmit={revise} t={t} />}
-          <ShareToCommunityPanel jobId={job.job_id} lang={lang} />
+          {/* flex-col, not a row — either panel can expand into its own
+              textarea (caption draft / share-edit) independently, and a
+              row would squeeze two side by side once one does. */}
+          <div className="flex flex-col gap-2">
+            <GenerateCaptionButton jobId={job.job_id} lang={lang} />
+            <ShareToCommunityPanel jobId={job.job_id} lang={lang} />
+          </div>
         </>
       )}
 
@@ -237,7 +244,10 @@ export function AgentJobBubble({ job, onUpdate, lang }: { job: EditJob; onUpdate
               <Button size="sm" variant="outline" className="w-fit" onClick={openEditor}>
                 {t.openEditor}
               </Button>
-              <ShareToCommunityPanel jobId={job.job_id} lang={lang} />
+              <div className="flex flex-col gap-2">
+                <GenerateCaptionButton jobId={job.job_id} lang={lang} />
+                <ShareToCommunityPanel jobId={job.job_id} lang={lang} />
+              </div>
             </>
           )}
         </>

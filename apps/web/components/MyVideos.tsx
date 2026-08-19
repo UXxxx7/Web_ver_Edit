@@ -13,6 +13,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getMyVideosAction } from "@/app/(app)/agent/actions";
+import { GenerateCaptionButton } from "@/components/GenerateCaptionButton";
 import { ShareToCommunityPanel } from "@/components/ShareToCommunityPanel";
 import { addToEditorQueue } from "@/lib/editor-queue";
 import { basename, type SavedVideo } from "@/lib/edit-jobs";
@@ -211,6 +212,10 @@ export function MyVideos({ lang }: { lang: Lang }) {
                     >
                       {t.edit}
                     </button>
+                  </div>
+
+                  <div className="mt-2">
+                    <GenerateCaptionButton jobId={video.job_id} lang={lang} />
                   </div>
 
                   {postOpenFor === video.job_id ? (
