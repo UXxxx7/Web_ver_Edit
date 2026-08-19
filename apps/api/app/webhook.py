@@ -612,7 +612,18 @@ async def create_voice_clone_endpoint(
 
     user = get_or_create_user(wa_number)
     audio_data = await audio.read()
-    tmp_path = Path(get_config().jobs_dir) / f"_voice_sample_{user.id}.mp3"
+    # Real production bug, confirmed live: this used to hardcode a ".mp3"
+    # extension regardless of what was actually uploaded (voice_clone.py
+    # then declared Content-Type: audio/mpeg to match the fake extension).
+    # A real-world voice sample is very often .m4a (the default iPhone
+    # Voice Memos / video-audio-track format) — ElevenLabs' /v1/voices/add
+    # validates the actual audio content against the declared format, not
+    # just the filename, and rejected the mismatch with 400 Bad Request.
+    # Keep the real extension (from the browser-supplied filename, falling
+    # back to a generic one only if that's missing/extensionless) so the
+    # declared format always matches the actual bytes.
+    suffix = Path(audio.filename or "").suffix or ".bin"
+    tmp_path = Path(get_config().jobs_dir) / f"_voice_sample_{user.id}{suffix}"
     tmp_path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path.write_bytes(audio_data)
     try:
