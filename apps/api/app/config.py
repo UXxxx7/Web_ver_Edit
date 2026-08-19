@@ -80,6 +80,16 @@ class Config:
     elevenlabs_api_key: str = field(default_factory=lambda: os.getenv("ELEVENLABS_API_KEY", ""))
     faster_whisper_model: str = field(default_factory=lambda: os.getenv("FASTER_WHISPER_MODEL", "medium"))
 
+    # Remotion's own --concurrency default is sized off os.cpus().length,
+    # which reports the HOST's full core count even inside a container
+    # whose cgroups quota caps it far below that (confirmed: our Droplet's
+    # container sees more logical CPUs than it's actually entitled to) — so
+    # trusting Remotion's auto-detection under-counts the problem rather
+    # than harmlessly over-parallelizing. Explicit default of 1 (matches
+    # the small/1-vCPU Droplet this is actually deployed on today); bump
+    # via env if a future box has real cores to spare.
+    remotion_concurrency: int = field(default_factory=lambda: int(os.getenv("REMOTION_CONCURRENCY", "1")))
+
     # OpenMontage — root now points at apps/api itself (remotion-composer/
     # lives at apps/api/remotion-composer, not two levels up like the source repo).
     openmontage_root: Path = field(

@@ -273,9 +273,17 @@ def run_final_export(job: Job) -> dict[str, Any]:
         preview_path = Path(result["preview_path"])
 
     logger.info(f"最终导出: {preview_path} → {final_path}")
+    # -preset fast, not medium: this step re-encodes an already-finished
+    # preview purely to add +faststart for streaming — crf=18 already pins
+    # visual quality, so preset here only trades file size for CPU time,
+    # and every other encode in this pipeline already uses "fast" (see
+    # pipeline_runner.py's other ffmpeg calls, video_trimmer.py,
+    # silence_cutter.py, etc.). "medium" was the outlier, not a deliberate
+    # choice — matching it costs nothing here and saves real CPU time on
+    # small Droplets.
     subprocess.run(
         ["ffmpeg", "-y", "-i", str(preview_path),
-         "-c:v", "libx264", "-crf", "18", "-preset", "medium",
+         "-c:v", "libx264", "-crf", "18", "-preset", "fast",
          "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart",
          str(final_path)],
         capture_output=True, check=True,
@@ -3188,6 +3196,19 @@ def _op_apply_style(src: str, op: dict, workdir: Path) -> Optional[str]:
         "XiaojinEditorial", str(out.resolve()),
         f"--props={props_path.resolve()}",
         "--crf=18",
+        # Remotion splits frame rendering across threads by default (see
+        # its own docs on --concurrency), sized off os.cpus().length — fine
+        # on a real workstation, actively harmful on a 1-vCPU Droplet where
+        # there's nothing to actually parallelize onto: the extra Chrome
+        # worker contexts just add memory/context-switch overhead and were
+        # part of what pushed a render into heavy swapping in production.
+        # os.cpus().length still reports the host's full core count inside
+        # a container even when cgroups caps this container far below that,
+        # so leaving this unset UNDER-estimates the problem rather than just
+        # harmlessly over-parallelizing — use config.remotion_concurrency
+        # (env-configurable, defaults to 1) instead of trusting Remotion's
+        # own auto-detection.
+        f"--concurrency={config.remotion_concurrency}",
     ]
     logger.info(f"  apply_style: rendering via {' '.join(cmd)} (cwd={remotion_dir})")
     # 重试一次：确认过真实生产 bug——同一份 props/视频独立跑总是成功，只有紧跟在
@@ -3547,6 +3568,10 @@ def _remotion_render_props(props_path: Path, out: Path, remotion_dir: Path, *,
         composition, str(out.resolve()),
         f"--props={props_path.resolve()}",
         "--crf=18",
+        # See the other render call site's comment (_op_apply_style) —
+        # Remotion's own auto-detected concurrency over-counts cores on a
+        # constrained Droplet, so pin it explicitly instead.
+        f"--concurrency={get_config().remotion_concurrency}",
     ]
     on_progress("rendering")
     logger.info(f"  apply_style: rendering via {' '.join(cmd)} (cwd={remotion_dir})")
