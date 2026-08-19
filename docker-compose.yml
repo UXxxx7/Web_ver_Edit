@@ -38,6 +38,25 @@ services:
       SESSION_SECRET: ${SESSION_SECRET}
       NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
+    volumes:
+      # lib/store.ts's mock-mode user DB (.data/db.json, resolved relative
+      # to process.cwd() == /app in the standalone runner — see Dockerfile)
+      # — without this it lived on the container's own throwaway
+      # filesystem, so every rebuild/redeploy silently deleted every
+      # signed-up account. The session cookie itself doesn't go invalid
+      # when that happens (its HMAC key is SESSION_SECRET, set here in the
+      # environment above, untouched by a container rebuild), so a
+      # pre-rebuild cookie kept verifying as "signed in" while the user row
+      # it pointed at no longer existed — confirmed real production bug:
+      # proxy.ts's signature-only check let it bounce away from /login,
+      # then the page-level getCurrentUser() (which also looks the user up)
+      # bounced it right back, an infinite redirect loop on ANY account
+      # older than the last redeploy, independent of browser/device. See
+      # also the cookie-clearing fix in app/(app)/layout.tsx for the other
+      # half of this — this volume stops it from happening again, that one
+      # stops a stale cookie from looping instead of failing cleanly if it
+      # ever does.
+      - web_data:/app/.data
     depends_on:
       - api
     expose:
@@ -62,3 +81,4 @@ services:
 volumes:
   api_storage:
   api_db:
+  web_data:
