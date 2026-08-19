@@ -26,7 +26,7 @@
 import Ajv2020 from "ajv/dist/2020";
 import { useMemo } from "react";
 import { loadFont as loadInter } from "@remotion/google-fonts/Inter";
-import { loadFont as loadNotoSansTC } from "@remotion/google-fonts/NotoSansTC";
+import { loadFont as loadNotoSansSC } from "@remotion/google-fonts/NotoSansSC";
 import { AbsoluteFill, CalculateMetadataFunction, getRemotionEnvironment } from "remotion";
 import { computeOutputDuration, mapPropsForCuts, normalizeCuts } from "./cuts";
 import renderPropsSchema from "../../contracts/render_props.schema.json";
@@ -34,19 +34,32 @@ import renderPropsSchema from "../../contracts/render_props.schema.json";
 // headingFont/labelFont defaulted to CSS "inherit" (no font loaded at all)
 // and pipeline_runner.py never sets them — every real production render
 // was falling back to whatever generic font the render environment
-// happened to have, not the reference build's Inter/Noto Sans TC (confirmed:
+// happened to have, not the reference build's Inter/Noto Sans SC (confirmed:
 // zero references to headingFont/labelFont anywhere in pipeline_runner.py
 // or content_planner.py). Loading and defaulting to the same fonts
-// video-studio's vell-renewal-fresh reference uses — tc (includes latin) for
+// video-studio's vell-renewal-fresh reference uses — sc (includes latin) for
 // headings so both languages render correctly, inter for the small
 // UPPERCASE labels/eyebrows, matching how the reference assigns them.
 //
-// getInfo().fontFamily for NotoSansTC is always literally "Noto Sans TC"
+// This was NotoSansTC (Traditional Chinese, "chinese-traditional" subset)
+// until a live render (job_7cdcfb78a97c, 2026-08-19) came back
+// degraded — qa_stills flagged tofu-box glyphs across nav/subtitles/
+// titles/data cards on all 3 attempts. Root cause: pipeline_runner.py's
+// content_planner writes Simplified Chinese script, and NotoSansTC's
+// only CJK subset ("chinese-traditional") is a curated glyph set that
+// doesn't cover Simplified-only codepoints (e.g. 买/说 vs 買/說 are
+// distinct codepoints) — it's the wrong font family for this content,
+// not a missing-await/race issue (loadFont() already calls
+// delayRender()/continueRender() internally, confirmed in
+// @remotion/google-fonts' base.js). NotoSansSC is the family actually
+// scoped for Simplified Chinese; switched heading font + subset to it.
+//
+// getInfo().fontFamily for NotoSansSC is always literally "Noto Sans SC"
 // regardless of which weights/subsets get loaded, so the default prop
 // value doesn't need the loadFont() call itself — that side effect (which
 // registers the actual font-face glyphs) is triggered separately below,
 // inside the component, not at module scope.
-const _defaultHeadingFont = "Noto Sans TC";
+const _defaultHeadingFont = "Noto Sans SC";
 const _defaultLabelFont = "Inter";
 import { BrandBar } from "./components/xiaojin/BrandBar";
 import { BudgetRevealSection, BudgetRevealSectionProps } from "./components/xiaojin/BudgetRevealSection";
@@ -399,9 +412,9 @@ export const XiaojinEditorial: React.FC<XiaojinEditorialProps> = (rawProps) => {
   // requirement — repeated calls with the same weights/subsets are free.
   useMemo(() => {
     const { isPlayer } = getRemotionEnvironment();
-    loadNotoSansTC("normal", {
+    loadNotoSansSC("normal", {
       weights: isPlayer ? ["700"] : ["500", "700", "800"],
-      subsets: isPlayer ? ["latin"] : ["chinese-traditional", "latin"],
+      subsets: isPlayer ? ["latin"] : ["chinese-simplified", "latin"],
     });
     loadInter("normal", {
       weights: ["400", "500", "600", "700", "800"],
