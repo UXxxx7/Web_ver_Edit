@@ -103,6 +103,44 @@ def get_jobs_by_batch(batch_id: str) -> list[Job]:
         session.close()
 
 
+def count_jobs_for_user(user_id: int) -> int:
+    """呢個用戶總共起過幾多個 job（唔理 pipeline/status，包括 C-roll——
+    pipeline 呢個字段對 C-roll/普通剪輯都係同一個預設值 "talking-head"，
+    apps/web 兩條路徑都係咁傳，唔可以靠佢分辨，所以呢度故意唔分類型，
+    淨係計"有冇起過"）。畀 apps/web 首頁個 onboarding checklist 用——
+    唔需要完整 job 列表,一個數就夠。"""
+    session = get_session()
+    try:
+        return session.query(Job).filter(Job.user_id == user_id).count()
+    finally:
+        session.close()
+
+
+def list_done_jobs_for_user(user_id: int, limit: int = 100) -> list[Job]:
+    """呢個用戶已經完成（DONE）嘅 job，按建立時間新到舊排——畀 apps/web
+    嘅「我的影片」用，作為帳號級持久化嘅來源（取代之前淨靠瀏覽器
+    localStorage 記 job id 嗰種、換瀏覽器/裝置就唔見嘅做法）。
+
+    淨返 DONE：PREVIEW_READY 仲未算「完成」（見 apps/web MyVideos.tsx
+    同一個篩選邏輯，呢度保持一致，唔改語義）——用戶要主動匯出先算數。
+    同 get_jobs_by_status 一樣要 expunge，畀個 caller 喺 session 關咗之後
+    都用得到呢批 object。"""
+    session = get_session()
+    try:
+        jobs = (
+            session.query(Job)
+            .filter(Job.user_id == user_id, Job.status == JobStatus.DONE)
+            .order_by(Job.created_at.desc())
+            .limit(limit)
+            .all()
+        )
+        for job in jobs:
+            session.expunge(job)
+        return jobs
+    finally:
+        session.close()
+
+
 def get_jobs_by_status(statuses: list[JobStatus]) -> list[Job]:
     """获取处于指定状态的任务列表（用于启动时找孤儿任务，不预加载 user/messages）。"""
     session = get_session()

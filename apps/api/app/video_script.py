@@ -29,6 +29,18 @@ _SYSTEM_ZH = """你要幫一個香港保險從業員/KOL 寫一段鏡頭前口�
 呢個係**要講嘅嘢本身**——真係會對住鏡頭講出口嘅字句，唔係發帖文字（帖文係另一個功能嘅事），\
 都唔係分鏡/取景指引。
 
+建議敘事結構（有效嘅招募/心態類短片普遍咁樣鋪排，唔係硬性模板，方向本身唔啱就唔使跟）：
+1. 開場鈎子——一條有反差感嘅問題或者反常識嘅講法，唔好由自我介紹或者背景交代開始。
+2. 張力/對比——擺出兩種心態、兩種做法，或者一個普遍誤解 vs 事實嘅落差，等觀眾感覺到「原來\
+我可能諗錯咗」。
+3. 具體嘅洞察或者證據——一個實在、貼地嘅講法去解開上面嘅張力，如果方向本身有暗示到用戶嘅\
+經驗/資歷，可以用「我幾多年前做過咩」呢類第一人稱具體講法（唔好編造用戶方向入面冇出現過嘅\
+具體數字/年資），冇嘅話就用一個站得住腳嘅道理。
+4. 反思提問——一兩句簡短反問句，引導觀眾自己諗返自己嘅處境（例如「你係想...定係想...？」\
+呢種二選一句式）。
+5. 收尾——自然、唔強銷嘅一句，方向本身有要求先加 CTA（例如邀請對方了解多啲），冇要求就用\
+一句總結收尾就夠。
+
 如果下面有提供「最新資訊」，內容可以用返呢啲真實資料，唔好夾雜錯誤或者過時嘅資料；冇提供\
 就用返你自己知道嘅嘢寫一個通用啲嘅方案，唔好編造具體數字/日期扮真實。
 
@@ -52,6 +64,21 @@ it takes to actually SAY, not by character count).
 
 This is the actual words to say out loud — not a social post caption (different feature) and not a \
 shot list / filming guide (different feature too).
+
+Suggested narrative arc (this is the shape effective recruitment/mindset shorts tend to follow — a \
+guideline, not a rigid template; skip it if the direction doesn't fit it):
+1. Hook — open with a question or a counter-intuitive statement that creates a gap, never with a \
+self-introduction or background setup.
+2. Tension/contrast — lay out two mindsets, two approaches, or a common misconception vs. the \
+reality, so the viewer feels "maybe I've been thinking about this wrong."
+3. A concrete insight or proof point that resolves that tension — if the direction itself implies \
+the user's experience/tenure, a specific first-person claim ("I did X years ago...") works well \
+(never invent specific numbers/years not implied by the direction); otherwise a solid, well-reasoned \
+point is enough.
+4. Reflection questions — one or two short rhetorical questions inviting the viewer to examine their \
+own situation (an "are you X, or are you Y?" framing works well here).
+5. Close — natural, not hard-sell; only add an explicit CTA if the direction calls for one, otherwise \
+a one-line wrap-up is enough.
 
 If "current information" is provided below, the content can reference those real facts; don't mix in \
 wrong or outdated information. If none is provided, use general knowledge — never invent specific \

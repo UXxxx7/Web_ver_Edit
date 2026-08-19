@@ -329,20 +329,46 @@ class BaseTool(ABC):
             exe = shutil.which(resolved_cmd[0])
             if exe:
                 resolved_cmd[0] = exe
-        return subprocess.run(
-            resolved_cmd,
-            capture_output=True,
-            text=True,
-            # Force UTF-8 decoding. The default uses the OS locale (cp1252 on
-            # Windows), which raises UnicodeDecodeError on a subprocess that
-            # emits Unicode/emoji (e.g. Remotion's progress output), killing the
-            # reader thread and potentially swallowing the real error text.
-            encoding="utf-8",
-            errors="replace",
-            timeout=timeout,
-            cwd=cwd,
-            check=True,
-        )
+        try:
+            return subprocess.run(
+                resolved_cmd,
+                capture_output=True,
+                text=True,
+                # Force UTF-8 decoding. The default uses the OS locale (cp1252 on
+                # Windows), which raises UnicodeDecodeError on a subprocess that
+                # emits Unicode/emoji (e.g. Remotion's progress output), killing the
+                # reader thread and potentially swallowing the real error text.
+                encoding="utf-8",
+                errors="replace",
+                timeout=timeout,
+                cwd=cwd,
+                check=True,
+            )
+        except subprocess.CalledProcessError as e:
+            # CalledProcessError.__str__ is hardcoded to build its message
+            # from just .returncode/.cmd — it ignores .stderr/.output
+            # entirely (confirmed by reading cpython's subprocess.py; a
+            # first attempt at this fix tried appending to e.args, which
+            # __str__ also doesn't consult, so it silently had no effect).
+            # Every caller up the stack does `except Exception as e:
+            # error=str(e)` (see video_trimmer.py's execute()), so without
+            # this the actual ffmpeg/tool stderr never reaches the job's
+            # error message or logs — confirmed real symptom: a
+            # remove_filler failure showed only the command + exit code,
+            # no way to tell what actually went wrong short of re-running
+            # it by hand outside the app. Subclassing to override __str__
+            # (rather than raising a different exception type) keeps
+            # `isinstance(e, subprocess.CalledProcessError)` true for any
+            # future caller that wants to catch it specifically.
+            class _CalledProcessErrorWithStderr(subprocess.CalledProcessError):
+                def __str__(self) -> str:
+                    base = super().__str__()
+                    stderr = (self.stderr or "").strip()
+                    return f"{base}\nstderr:\n{stderr[-4000:]}" if stderr else base
+
+            raise _CalledProcessErrorWithStderr(
+                e.returncode, e.cmd, output=e.output, stderr=e.stderr
+            ) from e
 
 
 class DependencyError(Exception):

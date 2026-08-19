@@ -187,7 +187,17 @@ def call_llm_chat(system_prompt: str, user_message: str, *, temperature: float =
         if not base:
             logger.warning("LLM_PROVIDER=custom but no LLM_BASE_URL set")
             return None
-        endpoint = base + ("/chat/completions" if (base.endswith("/v1") or base.endswith("/openai")) else "/v1/chat/completions")
+        # Was also special-casing base.endswith("/openai") to skip adding
+        # "/v1" — wrong for our actual LLM_BASE_URL
+        # (generativelanguage.googleapis.com/v1beta/openai, Gemini's
+        # OpenAI-compat endpoint): that produced .../openai/chat/completions,
+        # a 404 (confirmed in a real remove_filler job's logs — content_planner
+        # .py's filler-removal LLM call silently failed every time,
+        # degrading to garbage/empty keep_ranges instead of erroring loudly).
+        # agent_editor.py's _resolve_endpoint_and_key() hits the same
+        # LLM_BASE_URL without that extra case and correctly produces
+        # .../openai/v1/chat/completions — matching that proven-correct logic.
+        endpoint = base + ("/chat/completions" if base.endswith("/v1") else "/v1/chat/completions")
         api_key = config.llm_api_key
     else:
         logger.warning(f"Unknown LLM provider '{provider}'")

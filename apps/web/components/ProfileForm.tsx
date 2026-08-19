@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { AvatarUpload } from "@/components/AvatarUpload";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -55,56 +56,59 @@ export function ProfileForm({ profile, lang }: { profile: Profile; lang: Lang })
   const [brandVoiceNotes, setBrandVoiceNotes] = useState(profile.brand_voice_notes);
 
   return (
-    <form action={formAction} className="flex flex-col gap-5">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="display_name">{t.displayName}</Label>
-          <Input
-            id="display_name" name="display_name" value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)} placeholder={t.displayNamePh}
-          />
+    <div className="flex flex-col gap-6">
+      <AvatarUpload avatarUrl={profile.avatar_url} displayName={displayName || profile.role} lang={lang} />
+      <form action={formAction} className="flex flex-col gap-5">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="display_name">{t.displayName}</Label>
+            <Input
+              id="display_name" name="display_name" value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)} placeholder={t.displayNamePh}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="role">{t.role}</Label>
+            <Input
+              id="role" name="role" value={role}
+              onChange={(e) => setRole(e.target.value)} placeholder={t.rolePh}
+            />
+          </div>
         </div>
+
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="role">{t.role}</Label>
-          <Input
-            id="role" name="role" value={role}
-            onChange={(e) => setRole(e.target.value)} placeholder={t.rolePh}
-          />
+          <Label htmlFor="preferred_lang">{t.preferredLang}</Label>
+          <select
+            id="preferred_lang"
+            name="preferred_lang"
+            value={preferredLang}
+            onChange={(e) => setPreferredLang(e.target.value as Profile["preferred_lang"])}
+            className="h-9 rounded-lg border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            <option value="zh">中文（廣東話）</option>
+            <option value="en">English</option>
+          </select>
         </div>
-      </div>
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="preferred_lang">{t.preferredLang}</Label>
-        <select
-          id="preferred_lang"
-          name="preferred_lang"
-          value={preferredLang}
-          onChange={(e) => setPreferredLang(e.target.value as Profile["preferred_lang"])}
-          className="h-9 rounded-lg border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-        >
-          <option value="zh">中文（廣東話）</option>
-          <option value="en">English</option>
-        </select>
-      </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="brand_voice_notes">{t.brandVoice}</Label>
+          <Textarea
+            id="brand_voice_notes"
+            name="brand_voice_notes"
+            value={brandVoiceNotes}
+            onChange={(e) => setBrandVoiceNotes(e.target.value)}
+            rows={4}
+            placeholder={t.brandVoicePh}
+          />
+          <p className="text-xs text-muted-foreground">{t.brandVoiceHint}</p>
+        </div>
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="brand_voice_notes">{t.brandVoice}</Label>
-        <Textarea
-          id="brand_voice_notes"
-          name="brand_voice_notes"
-          value={brandVoiceNotes}
-          onChange={(e) => setBrandVoiceNotes(e.target.value)}
-          rows={4}
-          placeholder={t.brandVoicePh}
-        />
-        <p className="text-xs text-muted-foreground">{t.brandVoiceHint}</p>
-      </div>
-
-      {state.saved && <p className="text-sm text-primary">{t.saved}</p>}
-      {state.error && <p className="text-sm text-destructive">{state.error}</p>}
-      <Button type="submit" disabled={pending} className="w-fit">
-        {pending ? t.saving : t.save}
-      </Button>
-    </form>
+        {state.saved && <p className="text-sm text-primary">{t.saved}</p>}
+        {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+        <Button type="submit" disabled={pending} className="w-fit">
+          {pending ? t.saving : t.save}
+        </Button>
+      </form>
+    </div>
   );
 }

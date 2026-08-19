@@ -1,15 +1,21 @@
 "use client";
 
 // Standalone entry point for the manual editor (remotion-composer/editor/,
-// ported unchanged — see apps/api/app/main.py). Previously only reachable
-// via a link buried inside a chat bubble; this is the top-level "Editor"
-// nav destination the user asked for instead.
+// ported unchanged — see apps/api/app/main.py).
+//
+// Used to auto-list every job lib/recent-jobs.ts had ever seen on this
+// browser (created, errored, revised — everything), which duplicated "My
+// Videos"'s job of being *the* saved-videos list and cluttered this page
+// with things nobody meant to edit. Per an explicit product decision, this
+// is now a deliberately-curated queue instead: only videos someone clicked
+// "Edit" on from a My Videos card land here (lib/editor-queue.ts), nothing
+// shows up automatically just because it exists.
 import { useEffect, useState } from "react";
 import { getEditJobStatus, getEditorUrl } from "@/app/(app)/agent/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { getRecentJobs } from "@/lib/recent-jobs";
+import { getEditorQueue, removeFromEditorQueue } from "@/lib/editor-queue";
 import type { EditJob } from "@/lib/edit-jobs";
 
 async function openEditorFor(jobId: string, setError: (e: string | null) => void) {
@@ -26,25 +32,34 @@ export function EditorPicker() {
   const [manualId, setManualId] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  function refresh() {
+    const ids = getEditorQueue();
     // Promise.all([]) resolves to [] on the microtask queue, so the empty
     // case also sets state asynchronously — avoids a synchronous setState in
     // the effect body (eslint react-hooks/set-state-in-effect).
     Promise.all(
-      getRecentJobs().map(async (id) => {
+      ids.map(async (id) => {
         const r = await getEditJobStatus(id);
         return { id, job: r.ok ? r.data : null };
       })
     ).then(setJobs);
-  }, []);
+  }
+
+  useEffect(refresh, []);
+
+  function removeOne(jobId: string) {
+    removeFromEditorQueue(jobId);
+    setJobs((prev) => (prev ? prev.filter((j) => j.id !== jobId) : prev));
+  }
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-10">
       <div className="mb-6">
         <h1 className="text-xl font-bold tracking-tight">Editor</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          The manual props/timeline editor — opens in a new tab. Pick a job below, from anything you&apos;ve
-          created in Agent on this browser, or paste a job id directly.
+          The manual props/timeline editor — opens in a new tab. Videos you send here from{" "}
+          <a href="/videos" className="underline">My Videos</a> (click &quot;Edit&quot; on one, or select several
+          and &quot;Add to editor&quot;) show up below, or paste a job id directly.
         </p>
       </div>
 
@@ -66,12 +81,12 @@ export function EditorPicker() {
         </CardContent>
       </Card>
 
-      <h3 className="mb-3 text-sm font-semibold">Recent jobs (this browser)</h3>
+      <h3 className="mb-3 text-sm font-semibold">Sent here for editing</h3>
       {jobs === null && <p className="text-sm text-muted-foreground">Loading…</p>}
       {jobs?.length === 0 && (
         <p className="text-sm text-muted-foreground">
-          No jobs created here yet — go to <a href="/agent" className="underline">Agent</a> and upload a
-          video or photo first.
+          Nothing here yet — go to <a href="/videos" className="underline">My Videos</a> and click
+          &quot;Edit&quot; on a finished video.
         </p>
       )}
       <div className="flex flex-col gap-2">
@@ -84,9 +99,14 @@ export function EditorPicker() {
                   {job ? `${job.status} · ${job.edit_request || job.pipeline}` : "Not found (may belong to another session)"}
                 </p>
               </div>
-              <Button size="sm" variant="outline" onClick={() => openEditorFor(id, setError)}>
-                Open editor
-              </Button>
+              <div className="flex shrink-0 gap-2">
+                <Button size="sm" variant="outline" onClick={() => openEditorFor(id, setError)}>
+                  Open editor
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => removeOne(id)}>
+                  Remove
+                </Button>
+              </div>
             </CardContent>
           </Card>
         ))}
