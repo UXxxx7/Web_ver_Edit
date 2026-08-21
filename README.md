@@ -3,6 +3,7 @@
 The OpenMontage brand's standalone product website (working subdomain:
 `studio.openmontage.video`) — replaces the WhatsApp bot as the primary
 product. Full plan and phased roadmap: [`implementation_plan.md`](./implementation_plan.md).
+C-roll digital-human pipeline, dashboard, and deployment: [`docs/croll-technical-documentation.md`](./docs/croll-technical-documentation.md).
 
 **Phase 0/1 (this repo's current state):** account system + profile, and
 the 3 content-brainstorm tools (script / shot list / post idea) ported from
