@@ -7,7 +7,18 @@ import { signOutAction } from "./actions";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
-  if (!user) redirect("/login"); // proxy.ts already guards this; belt-and-suspenders for direct server-render.
+  if (!user) {
+    // Redirect to the /clear-session Route Handler, not straight to
+    // /login: cookies can only be written from a Server Action/Route
+    // Handler/Middleware, never from a Server Component's own render (hit
+    // this live — calling signOut() directly here crashed every page with
+    // "Cookies can only be modified in a Server Action or Route Handler").
+    // See /clear-session/route.ts's own header for why clearing the
+    // cookie here (rather than just redirecting past the disagreement
+    // again) is what actually breaks the /login <-> "/" loop a
+    // validly-signed-but-nobody-home cookie causes.
+    redirect("/clear-session");
+  }
   const [profile, lang] = await Promise.all([getProfile(user.id), getLang()]);
   const avatarInitial = (profile.display_name || user.email).trim().charAt(0).toUpperCase();
 

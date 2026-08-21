@@ -12,6 +12,7 @@ ElevenLabs 公开文档里 `POST /v1/voices/add` 这个基础接口，这里直�
 from __future__ import annotations
 
 import logging
+import mimetypes
 import os
 from pathlib import Path
 from typing import Optional
@@ -41,8 +42,16 @@ def create_instant_voice_clone(audio_path: Path, name: str) -> Optional[str]:
         logger.warning("voice_clone: 未配置 ELEVENLABS_API_KEY")
         return None
     try:
+        # Declare the real content type instead of a hardcoded "audio/mpeg"
+        # — ElevenLabs validates the actual audio against the declared
+        # format and 400s on a mismatch (confirmed live: an .m4a sample
+        # mislabeled as audio/mpeg was rejected outright). mimetypes covers
+        # every common voice-sample format (mp3, wav, m4a, ogg, webm, ...);
+        # fall back to a generic binary type only for something it doesn't
+        # recognize, rather than guessing wrong.
+        content_type = mimetypes.guess_type(audio_path.name)[0] or "application/octet-stream"
         with open(audio_path, "rb") as f:
-            files = {"files": (audio_path.name, f, "audio/mpeg")}
+            files = {"files": (audio_path.name, f, content_type)}
             data = {"name": name}
             r = requests.post(
                 _ADD_VOICE_URL,

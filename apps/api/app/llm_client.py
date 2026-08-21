@@ -93,9 +93,16 @@ def _post_bounded(
 # authoring step down with it). Restored to 3 attempts, but scoped to
 # status-retryable failures only — every caller still has a graceful
 # fallback for the case both attempts genuinely fail, so this only helps.
+# 2026-08-19 再调一次：3 次(共约 4.5s 退避)扛不住这天 Gemini 的真实故障模式——
+# 不是秒级抖动，是持续数分钟的 503（同一个 croll 请求，隔 5-20 分钟单独重试
+# 4 次，次次同样的 503，中间穿插过一次探测请求成功——间歇性但每次"发作"
+# 明显是分钟级的，不是单次请求内的瞬时抖动）。5 次、退避拉到 3s 基数（3/6/9/12s，
+# 约 30s 总退避）在这种模式下实际有意义地提升撞上恢复窗口的概率，同时还没长到
+# 让一次文案生成感觉像卡死——那种量级的持续故障（真的挂几分钟以上）重试再多次
+# 也没用，得让用户自己等一等再手动重试，不该在单次请求里死等。
 _MAX_NETWORK_ATTEMPTS = 1
-_MAX_STATUS_ATTEMPTS = 3
-_RETRY_BACKOFF_BASE_SECONDS = 1.5
+_MAX_STATUS_ATTEMPTS = 5
+_RETRY_BACKOFF_BASE_SECONDS = 3.0
 _RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 
 
