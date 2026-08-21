@@ -8,6 +8,7 @@ import { Ruler } from "../Timeline/Ruler";
 import { useClipDrag } from "../Timeline/useClipDrag";
 import { usePinchZoom } from "../Timeline/usePinchZoom";
 import { usePlayheadScrub } from "../Timeline/usePlayheadScrub";
+import { useRazorSelect } from "../Timeline/useRazorSelect";
 import { VideoAudioLanes } from "../Timeline/VideoAudioLanes";
 import type { ClipItem } from "../../state/model";
 import { chunkWords, type Word } from "../../state/authoredCaptions";
@@ -95,6 +96,8 @@ export function AuthoredTimeline({
   overrides,
   durationInFrames,
   cuts = [],
+  onCutsChange,
+  sourceDurationFrames,
   selectedId,
   onSelect,
   onCommit,
@@ -120,6 +123,15 @@ export function AuthoredTimeline({
   /** Normalized cuts (SOURCE-video frames) — same shape/convention as Arm
    *  A's Timeline.tsx `cuts` prop. Defaults to empty (no cuts yet). */
   cuts?: VideoCut[];
+  /** Commits a new cuts array (razor tool) — same contract as Arm A's
+   *  Timeline.tsx onCutsChange. Razor toolbar button only renders when both
+   *  this and sourceDurationFrames are supplied, same "caller opts in" gate
+   *  Arm A uses. */
+  onCutsChange?: (next: VideoCut[]) => void;
+  /** SOURCE-space (pre-cut) video length in frames — normalizeCuts needs
+   *  this, not the OUTPUT `durationInFrames` above. Same distinction as Arm
+   *  A's Timeline.tsx sourceDurationFrames prop. */
+  sourceDurationFrames?: number;
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   onCommit: (id: string, patch: { mountFrame?: number; endFrame?: number }) => void;
@@ -373,6 +385,24 @@ export function AuthoredTimeline({
     onScrubEnd,
   });
 
+  // Razor tool — same gate/wiring as Arm A's Timeline.tsx: off by default,
+  // only shown once the caller actually supplies onCutsChange +
+  // sourceDurationFrames (AuthoredEditor.tsx's handleCutsChange + data's
+  // SOURCE duration).
+  const [razorMode, setRazorMode] = useState(false);
+  const razorOverlayRef = useRef<HTMLDivElement>(null);
+  const razorAvailable = !!onCutsChange && sourceDurationFrames !== undefined;
+  const { razorHandlers, cancelDrag: cancelRazorDrag } = useRazorSelect({
+    scrollRef,
+    labelWidth,
+    pxPerFrameRef,
+    durationInFrames,
+    sourceDurationFrames: sourceDurationFrames ?? durationInFrames,
+    cuts,
+    onCutsChange: onCutsChange || (() => {}),
+    overlayRef: razorOverlayRef,
+  });
+
   const { pinchHandlers } = usePinchZoom({
     scrollRef,
     labelWidth,
@@ -381,7 +411,8 @@ export function AuthoredTimeline({
     cancelActiveDrags: useCallback(() => {
       cancelClipDrag();
       cancelScrub();
-    }, [cancelClipDrag, cancelScrub]),
+      cancelRazorDrag();
+    }, [cancelClipDrag, cancelScrub, cancelRazorDrag]),
   });
 
   const totalRows = viewMode === "layers"
@@ -399,6 +430,17 @@ export function AuthoredTimeline({
           <button type="button" className="btn btn--sm" aria-selected={viewMode === "type"} onClick={() => setViewMode("type")} title="Group clips by element type">By type</button>
           <button type="button" className="btn btn--sm" aria-selected={viewMode === "layers"} onClick={() => setViewMode("layers")} title="Group by stacking order (read-only — this scene's generated code doesn't wire layer edits to the render yet)">Layers</button>
         </div>
+        {razorAvailable && (
+          <button
+            type="button"
+            className="btn btn--sm"
+            aria-selected={razorMode}
+            onClick={() => setRazorMode((v) => !v)}
+            title="Razor tool — click-drag across the Video/Audio lane to cut that range instantly"
+          >
+            ✂ Razor
+          </button>
+        )}
         <span className="toolbar__spacer" />
         <button type="button" className="btn btn--sm" onClick={() => setPxPerFrame((z) => Math.max(0.05, (z || 1) / 1.6))} title="Zoom out">−</button>
         <button type="button" className="btn btn--sm" onClick={zoomFit} title="Fit to width">Fit</button>
@@ -426,7 +468,16 @@ export function AuthoredTimeline({
             waveformUrl={waveformUrl}
             spliceFrames={spliceFrames}
             spliceTitle={(i) => `Cut here (${(cuts[i]?.toFrame ?? 0) - (cuts[i]?.fromFrame ?? 0)} frames removed)`}
+            trackHandlers={razorMode && razorAvailable ? razorHandlers : scrubHandlers}
+            trackClassName={razorMode && razorAvailable ? "lane__track--razor" : undefined}
           />
+          {razorAvailable && (
+            <div
+              ref={razorOverlayRef}
+              className="razor-selection"
+              style={{ height: rowHeight * 3 - 4, display: "none" }}
+            />
+          )}
 
           {captionItems.length > 0 && (
             <div className="lane" style={{ height: rowHeight }}>

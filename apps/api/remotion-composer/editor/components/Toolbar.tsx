@@ -89,10 +89,10 @@ export function Toolbar({
         title={
           outOfSaves ? "Hourly render limit reached — try again later"
             : !isDirty ? "No changes to save"
-            : "Render your edits and send the new preview to WhatsApp"
+            : "Render your edits"
         }
       >
-        {busy ? "Working…" : "Save & send to WhatsApp"}
+        {busy ? "Working…" : "Export"}
       </button>
     </div>
   );

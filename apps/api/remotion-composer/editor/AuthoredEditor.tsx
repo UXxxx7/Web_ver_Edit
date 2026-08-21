@@ -601,6 +601,7 @@ function AuthoredEditorInner({
         height={data.height}
         playerRef={playerRef}
         manifest={overlayManifest}
+        timelineManifest={manifest}
         overrides={overrides}
         selectedId={selectedId}
         onSelect={setSelectedId}
@@ -659,10 +660,10 @@ function AuthoredEditorInner({
               ? "Fix the highlighted fields before saving"
               : !isDirty
               ? "No changes to save"
-              : "Render your edits and send the new preview to WhatsApp"
+              : "Render your edits"
           }
         >
-          {busy ? "Working…" : "Save & send to WhatsApp"}
+          {busy ? "Working…" : "Export"}
         </button>
       </div>
 
@@ -778,6 +779,8 @@ function AuthoredEditorInner({
         overrides={overrides}
         durationInFrames={outputDurationInFrames}
         cuts={cuts}
+        onCutsChange={handleCutsChange}
+        sourceDurationFrames={data.durationInFrames}
         selectedId={selectedId}
         onSelect={setSelectedId}
         onCommit={handleOverrideChange}

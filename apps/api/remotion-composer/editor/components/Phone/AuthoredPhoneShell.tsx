@@ -70,6 +70,7 @@ export function AuthoredPhoneShell({
   height,
   playerRef,
   manifest,
+  timelineManifest,
   overrides,
   selectedId,
   onSelect,
@@ -130,7 +131,18 @@ export function AuthoredPhoneShell({
   width: number;
   height: number;
   playerRef: React.RefObject<PlayerRef>;
+  /** Canvas-overlay-safe manifest (server elements + the synthetic caption
+   *  box, NOT recovered elements — same reasoning as AuthoredEditor.tsx's
+   *  own overlayManifest: recovered elements' x/y/w/h are placeholders, not
+   *  real geometry, so they must never appear as a draggable canvas box). */
   manifest: ManifestElement[];
+  /** Full manifest INCLUDING client-recovered elements — feeds the Timeline
+   *  only (mountFrame/endFrame are genuinely wired for those, geometry
+   *  isn't needed there). Was missing entirely until 2026-08-14 — this
+   *  shell reused the canvas-safe `manifest` for the Timeline too, so every
+   *  recovered element was invisible on Arm B's phone layout even when the
+   *  desktop layout showed it correctly. */
+  timelineManifest: ManifestElement[];
   overrides: Record<string, Record<string, unknown>>;
   selectedId: string | null;
   onSelect: (id: string | null) => void;
@@ -257,10 +269,12 @@ export function AuthoredPhoneShell({
 
       <div className="phone-app__timeline">
         <AuthoredTimeline
-          manifest={manifest}
+          manifest={timelineManifest}
           overrides={overrides}
           durationInFrames={outputDurationInFrames}
           cuts={cuts}
+          onCutsChange={onCutsChange}
+          sourceDurationFrames={durationInFrames}
           selectedId={selectedId}
           onSelect={handleSelect}
           onCommit={onElementTimeCommit}
