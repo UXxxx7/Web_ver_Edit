@@ -9,10 +9,10 @@ import "server-only";
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { COOKIE_NAME, MAX_AGE_S, createSessionToken, verifySessionToken } from "./session";
-import { createUser, findUserByEmail, findUserById } from "./store";
+import { createUser, deleteUserAccount, findUserByEmail, findUserById } from "./store";
 import { createClient as createSupabaseServerClient } from "./supabase/server";
 
-export type CurrentUser = { id: string; email: string };
+export type CurrentUser = { id: string; email: string; createdAt: string };
 export type AuthResult = { error: string } | { error?: undefined };
 
 export function isSupabaseConfigured(): boolean {
@@ -24,14 +24,14 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     const supabase = await createSupabaseServerClient();
     const { data } = await supabase.auth.getUser();
     if (!data.user) return null;
-    return { id: data.user.id, email: data.user.email ?? "" };
+    return { id: data.user.id, email: data.user.email ?? "", createdAt: data.user.created_at };
   }
   const token = (await cookies()).get(COOKIE_NAME)?.value;
   const session = verifySessionToken(token);
   if (!session) return null;
   const user = await findUserById(session.uid);
   if (!user) return null;
-  return { id: user.id, email: user.email };
+  return { id: user.id, email: user.email, createdAt: user.createdAt };
 }
 
 export async function requireUser(): Promise<CurrentUser> {
@@ -85,6 +85,31 @@ export async function signOut(): Promise<void> {
     return;
   }
   (await cookies()).delete(COOKIE_NAME);
+}
+
+// Danger-zone account deletion. Mock mode deletes everything (users,
+// profiles, generations, posts, comments, likes) — fully reversible-free,
+// verifiable end to end. Supabase mode can only delete the app-owned rows
+// reachable with the anon key (profiles/generations/posts/post_comments/
+// post_likes, all RLS-scoped to auth.uid()); removing the actual
+// auth.users row needs a service-role key/admin RPC that isn't configured
+// in this project, so that row is left behind — documented gap, not
+// silently swallowed, same spirit as this file's other known limitations.
+export async function deleteCurrentAccount(): Promise<AuthResult> {
+  const user = await requireUser();
+  if (isSupabaseConfigured()) {
+    const supabase = await createSupabaseServerClient();
+    await supabase.from("post_likes").delete().eq("user_id", user.id);
+    await supabase.from("post_comments").delete().eq("user_id", user.id);
+    await supabase.from("posts").delete().eq("user_id", user.id);
+    await supabase.from("generations").delete().eq("user_id", user.id);
+    await supabase.from("profiles").delete().eq("id", user.id);
+    await supabase.auth.signOut();
+    return {};
+  }
+  await deleteUserAccount(user.id);
+  (await cookies()).delete(COOKIE_NAME);
+  return {};
 }
 
 async function setMockSessionCookie(uid: string): Promise<void> {

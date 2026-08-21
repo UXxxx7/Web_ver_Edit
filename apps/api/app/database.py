@@ -102,6 +102,15 @@ class Job(Base):
     )
     pipeline: Mapped[str] = mapped_column(String(64), default="talking-head")
 
+    # User-set display name for "My Videos" (apps/web) — None until the
+    # user explicitly renames it, in which case the UI falls back to
+    # showing edit_request instead (the original description of what was
+    # asked for). Deliberately a separate column rather than overwriting
+    # edit_request itself: that field still gets read/appended to by the
+    # revise flow (see worker.revise_plan) and is part of the job's actual
+    # history, not just a display label.
+    title: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
     # Input
     input_video_path: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     input_caption: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -269,6 +278,30 @@ class Clip(Base):
     # 单独查询。
 
 
+class JobVersion(Base):
+    """存檔快照——每次 final render 成功之後即刻複製一份 final.mp4 去獨立
+    檔名（見 worker.run_final_render），因為 pipeline_runner.run_final_export
+    每次都用固定檔名 final.mp4（`-y` 覆蓋），revise 完再 render 一次，舊
+    嗰條片嘅 bytes 冇得留低。呢個表存低每一版嘅指標，等 apps/web 嘅
+    version-history UI 可以列出/download 返舊版本。
+
+    同 Clip.output_filename 一樣淨係存扁平檔名，唔存完整路徑——
+    /files/{job_id}/{filename} 呢條路唔支援嵌套路徑（見 Clip 自己嘅
+    注解），version 檔案一樣要攤平喺 job_dir 根目錄（final_v{N}.mp4）。"""
+    __tablename__ = "job_versions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    job_id: Mapped[str] = mapped_column(String(36), ForeignKey("jobs.id"), nullable=False, index=True)
+    version_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    output_filename: Mapped[str] = mapped_column(String(128), nullable=False)
+    # revise 每次都喺舊 edit_request 後面加"。補充：..."（見 worker.revise_plan），
+    # 呢度存嗰一刻嘅完整 edit_request，等用戶睇返嗰一版係點樣改出嚟嘅。
+    edit_request: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime, default=datetime.datetime.utcnow
+    )
+
+
 class Message(Base):
     __tablename__ = "messages"
 
@@ -354,6 +387,9 @@ def _migrate_schema(engine) -> None:
     if "current_stage" not in cols:
         with engine.begin() as conn:
             conn.execute(_text("ALTER TABLE jobs ADD COLUMN current_stage VARCHAR(64)"))
+    if "title" not in cols:
+        with engine.begin() as conn:
+            conn.execute(_text("ALTER TABLE jobs ADD COLUMN title VARCHAR(255)"))
 
     try:
         user_cols = {c["name"] for c in _inspect(engine).get_columns("users")}

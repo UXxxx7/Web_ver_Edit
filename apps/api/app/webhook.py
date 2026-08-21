@@ -29,6 +29,7 @@ from .job_manager import (
     append_asset,
     count_jobs_for_user,
     create_job,
+    delete_job,
     finalize_target,
     get_active_job_for_user,
     get_assets,
@@ -37,7 +38,9 @@ from .job_manager import (
     get_jobs_by_status,
     get_or_create_user,
     list_done_jobs_for_user,
+    list_job_versions,
     message_exists,
+    rename_job,
     save_message,
     update_job_fields,
     update_job_status,
@@ -530,12 +533,66 @@ async def get_user_videos(wa_number: str):
         "videos": [
             {
                 "job_id": j.id,
+                "title": j.title,
                 "edit_request": j.edit_request,
                 "pipeline": j.pipeline,
                 "final_path": j.final_path,
                 "created_at": j.created_at.isoformat() if j.created_at else None,
             }
             for j in jobs
+        ]
+    }
+
+
+@router.post("/users/{wa_number}/jobs/{job_id}/rename")
+async def rename_job_endpoint(wa_number: str, job_id: str, title: str = Form("")):
+    """改「我的影片」入面一條片嘅顯示名——見 rename_job() 自己嘅注解，淨係
+    本人先改得走。路徑掛喺 /users/{wa_number} 底下（同 /users/{wa_number}/
+    videos 一致），畀 ownership check 自然噉做，唔使淨係靠 job_id 估。
+
+    `title = Form("")` 唔係 `Form(...)`：清空自訂名（跌返去用 edit_request
+    做顯示名）要傳空字串，但 Starlette 嘅 multipart parser 將完全空嘅欄位
+    當「冇傳」處理，`Form(...)`（必填）會反手噉報 422 "Field required"——
+    實測confirm 過。用有默認值嘅 Form("") 先至畀空字串都當合法輸入通過。"""
+    user = get_or_create_user(wa_number)
+    job = rename_job(job_id, user.id, title)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found, or not yours")
+    return {"job_id": job.id, "title": job.title}
+
+
+@router.delete("/users/{wa_number}/jobs/{job_id}")
+async def delete_job_endpoint(wa_number: str, job_id: str):
+    """刪一條「我的影片」——見 delete_job() 自己嘅注解。刪咗即刻連帶
+    job_dir 嘅檔案都冇埋，冇得復原，所以 apps/web 嗰邊落單之前一定要有
+    確認 UI，唔淨係靠呢個 endpoint 本身。"""
+    user = get_or_create_user(wa_number)
+    deleted = delete_job(job_id, user.id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Job not found, or not yours")
+    return {"job_id": job_id, "deleted": True}
+
+
+@router.get("/jobs/{job_id}/versions")
+async def get_job_versions(job_id: str):
+    """呢個 job 每次成功 final render 嘅存檔版本，新到舊——畀 apps/web 嘅
+    version-history UI 用（見 JobVersion/worker.run_final_render 嘅注解）。
+
+    淨係 final render 先會存檔，PREVIEW_READY 唔會——用戶想睇返嘅係「呢個
+    job 出過幾條實際成品」，唔係中途嘅 preview 步驟。"""
+    job = get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    versions = list_job_versions(job_id)
+    return {
+        "versions": [
+            {
+                "version_number": v.version_number,
+                "filename": v.output_filename,
+                "edit_request": v.edit_request,
+                "created_at": v.created_at.isoformat() if v.created_at else None,
+            }
+            for v in versions
         ]
     }
 
@@ -553,14 +610,14 @@ async def get_job_video_theme(job_id: str):
     範圍細好多、唔想加呢層開銷落去每一條普通 job 度,所以獨立開一個按需
     調用嘅 endpoint,唔去猜嗰個未移植模組原本嘅輸出格式。
 
-    讀 job_dir/input_transcript.json——content_planner.py 第一次轉寫嗰份
-    （見嗰個檔案自己嘅注解），呢個時候（job 已經 PREVIEW_READY/DONE）一定
-    已經存在。"""
+    讀 job_dir/script_transcript.json——pipeline_runner.transcribe_segments()
+    喺 script 階段轉寫嗰份（見嗰個 function 自己嘅注解），呢個時候（job 已經
+    PREVIEW_READY/DONE）一定已經存在。"""
     job = get_job(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    transcript_path = job.job_dir / "input_transcript.json"
+    transcript_path = job.job_dir / "script_transcript.json"
     if not transcript_path.exists():
         return {"theme": None, "reason": "no transcript available for this job"}
 
@@ -592,7 +649,7 @@ async def get_job_video_theme(job_id: str):
     # "zh" or "en", so normalize here rather than making every caller redo
     # this same fallback.
     normalized_lang = "en" if lang == "en" else "zh"
-    return {"theme": theme.strip().strip('"「」""\''), "lang": normalized_lang}
+    return {"theme": theme.strip().strip("\"'「」“”"), "lang": normalized_lang}
 
 
 @router.post("/voice-clone")
@@ -835,6 +892,7 @@ async def get_job_endpoint(job_id: str):
     return {
         "animations": _animations_summary(job),
         "job_id": job.id,
+        "title": job.title,
         "status": job.status.value,
         "input_video_path": job.input_video_path,
         "preview_path": job.preview_path,

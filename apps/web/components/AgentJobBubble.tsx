@@ -10,7 +10,7 @@
 import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import {
-  confirmEditJob, getEditJobStatus, getEditorUrl, renderEditJob, retryEditJob, reviseEditJob,
+  confirmEditJob, getEditJobStatus, getEditorUrl, getJobVersionsAction, renderEditJob, retryEditJob, reviseEditJob,
   type ActionResult,
 } from "@/app/(app)/agent/actions";
 import { Button } from "@/components/ui/button";
@@ -18,8 +18,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { GenerateCaptionButton } from "@/components/GenerateCaptionButton";
 import { ShareToCommunityPanel } from "@/components/ShareToCommunityPanel";
 import { VideoPlayer } from "@/components/VideoPlayer";
-import { basename, IN_PROGRESS_STATUSES, operationLabels, type EditJob } from "@/lib/edit-jobs";
+import { basename, IN_PROGRESS_STATUSES, operationLabels, type EditJob, type JobVersion } from "@/lib/edit-jobs";
 import type { Lang } from "@/lib/i18n";
+import { relativeTime } from "@/lib/relative-time";
 
 const POLL_MS = 4000;
 // WhatsApp's own worker.js reassures the user roughly every minute of no
@@ -50,6 +51,15 @@ const T = {
     editorLink: "Editor link:",
     revisePlaceholder: "e.g. captions are too fast, slow them down",
     send: "Send",
+    versionHistory: "Version history",
+    hideVersions: "Hide version history",
+    loadingVersions: "Loading versions…",
+    noOtherVersions: "No earlier versions yet — they show up here once you revise and re-render.",
+    versionLabel: (n: number) => `Version ${n}`,
+    costLabel: (cost: string) => `~$${cost} generated`,
+    compare: "Compare",
+    compareTwo: "Pick 2 versions to compare",
+    closeCompare: "Close",
   },
   zh: {
     status: {
@@ -73,12 +83,23 @@ const T = {
     editorLink: "編輯器連結：",
     revisePlaceholder: "例如：字幕太快，慢一啲",
     send: "傳送",
+    versionHistory: "版本記錄",
+    hideVersions: "收埋版本記錄",
+    loadingVersions: "載入緊版本…",
+    noOtherVersions: "仲未有舊版本——修改再重新render之後就會出現喺度。",
+    versionLabel: (n: number) => `第 ${n} 版`,
+    costLabel: (cost: string) => `~$${cost} 生成費用`,
+    compare: "對比版本",
+    compareTwo: "揀2個版本嚟對比",
+    closeCompare: "關閉",
   },
 } satisfies Record<Lang, {
   status: Partial<Record<EditJob["status"], string>>; heartbeat: string; confirmRun: string; revise: string;
   degraded: (ops: string) => string; saveFinal: string; openEditor: string; download: string;
   somethingWrong: string; retry: string; needsClarification: string; editorLink: string;
-  revisePlaceholder: string; send: string;
+  revisePlaceholder: string; send: string; versionHistory: string; hideVersions: string;
+  loadingVersions: string; noOtherVersions: string; versionLabel: (n: number) => string;
+  costLabel: (cost: string) => string; compare: string; compareTwo: string; closeCompare: string;
 }>;
 
 function fileUrl(jobId: string, path: string | null) {
@@ -234,6 +255,9 @@ export function AgentJobBubble({ job, onUpdate, lang }: { job: EditJob; onUpdate
           {fileUrl(job.job_id, job.final_path) && (
             <>
               <VideoPlayer className="w-full max-w-[280px]" src={fileUrl(job.job_id, job.final_path)!} />
+              {job.generation_cost_usd > 0 && (
+                <p className="text-[11.5px] text-muted-foreground">{t.costLabel(job.generation_cost_usd.toFixed(2))}</p>
+              )}
               <a
                 href={fileUrl(job.job_id, job.final_path)!}
                 download
@@ -248,6 +272,7 @@ export function AgentJobBubble({ job, onUpdate, lang }: { job: EditJob; onUpdate
                 <GenerateCaptionButton jobId={job.job_id} lang={lang} />
                 <ShareToCommunityPanel jobId={job.job_id} lang={lang} />
               </div>
+              <VersionHistory jobId={job.job_id} lang={lang} />
             </>
           )}
         </>
@@ -273,6 +298,114 @@ export function AgentJobBubble({ job, onUpdate, lang }: { job: EditJob; onUpdate
         <p className="text-[11px] text-muted-foreground">
           {t.editorLink} <a className="underline" href={editorUrl} target="_blank" rel="noopener noreferrer">{editorUrl}</a>
         </p>
+      )}
+    </div>
+  );
+}
+
+// Lazy-fetched (only once, on first expand) — most jobs never get revised
+// past their first render, so eagerly fetching this for every finished job
+// bubble would be a wasted round trip almost every time.
+function VersionHistory({ jobId, lang }: { jobId: string; lang: Lang }) {
+  const t = T[lang];
+  const [open, setOpen] = useState(false);
+  const [versions, setVersions] = useState<JobVersion[] | undefined>(undefined);
+  // Version numbers, not array indices — stable even if the list is
+  // re-fetched. Capped at 2: a side-by-side compare only ever needs a
+  // "before" and an "after"; picking a 3rd swaps out the older pick
+  // rather than growing into a 3-up grid nobody asked for.
+  const [selected, setSelected] = useState<number[]>([]);
+  const [compareOpen, setCompareOpen] = useState(false);
+
+  async function toggle() {
+    setOpen((v) => !v);
+    if (versions === undefined) {
+      const result = await getJobVersionsAction(jobId);
+      setVersions(result.ok ? result.data : []);
+    }
+  }
+
+  function toggleSelect(versionNumber: number) {
+    setSelected((prev) => {
+      if (prev.includes(versionNumber)) return prev.filter((n) => n !== versionNumber);
+      if (prev.length >= 2) return [prev[1], versionNumber];
+      return [...prev, versionNumber];
+    });
+  }
+
+  const compareVersions = versions?.filter((v) => selected.includes(v.versionNumber)) ?? [];
+
+  return (
+    <div className="flex flex-col gap-2">
+      <button
+        type="button"
+        onClick={toggle}
+        className="w-fit text-[12.5px] font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+      >
+        {open ? t.hideVersions : t.versionHistory}
+      </button>
+      {open && (
+        <div className="flex flex-col gap-1 rounded-lg border border-border p-2">
+          {versions === undefined && <p className="px-1.5 py-1 text-[12px] text-muted-foreground">{t.loadingVersions}</p>}
+          {versions && versions.length <= 1 && (
+            <p className="px-1.5 py-1 text-[12px] leading-relaxed text-muted-foreground">{t.noOtherVersions}</p>
+          )}
+          {versions && versions.length > 1 && (
+            <>
+              {versions.map((v) => {
+                const url = fileUrl(jobId, v.filename);
+                if (!url) return null;
+                return (
+                  <div key={v.versionNumber} className="flex items-center gap-2 rounded-md px-1.5 py-1.5 text-[12.5px] transition-colors hover:bg-secondary/60">
+                    <input
+                      type="checkbox"
+                      checked={selected.includes(v.versionNumber)}
+                      onChange={() => toggleSelect(v.versionNumber)}
+                      className="h-3.5 w-3.5 accent-primary"
+                    />
+                    <span className="flex-1 font-medium text-foreground">{t.versionLabel(v.versionNumber)}</span>
+                    <span className="text-muted-foreground">{relativeTime(v.createdAt, lang)}</span>
+                    <a href={url} download className="text-primary hover:underline">{t.download}</a>
+                  </div>
+                );
+              })}
+              {selected.length === 2 ? (
+                <Button size="sm" variant="outline" className="mt-1 w-fit" onClick={() => setCompareOpen(true)}>
+                  {t.compare}
+                </Button>
+              ) : (
+                <p className="px-1.5 pt-0.5 text-[11px] text-muted-foreground">{t.compareTwo}</p>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {compareOpen && compareVersions.length === 2 && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4" onClick={() => setCompareOpen(false)}>
+          <div
+            className="flex max-h-[85vh] w-full max-w-2xl flex-col gap-3 overflow-y-auto rounded-2xl border border-border bg-card p-4 shadow-[0_8px_24px_-8px_rgba(15,27,60,0.25)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-[14px] font-bold text-foreground">{t.compare}</h3>
+              <button type="button" onClick={() => setCompareOpen(false)} className="text-[12.5px] font-medium text-muted-foreground hover:text-foreground">
+                {t.closeCompare}
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {compareVersions.map((v) => {
+                const url = fileUrl(jobId, v.filename);
+                return (
+                  <div key={v.versionNumber} className="flex flex-col gap-1.5">
+                    <span className="text-[12px] font-semibold text-foreground">{t.versionLabel(v.versionNumber)}</span>
+                    {url && <VideoPlayer className="w-full" src={url} />}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
